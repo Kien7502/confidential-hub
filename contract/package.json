@@ -1,0 +1,21 @@
+{
+  "name": "zama-ctoken-contracts",
+  "private": true,
+  "version": "0.1.0",
+  "type": "commonjs",
+  "scripts": {
+    "compile": "hardhat compile",
+    "export": "node scripts/export-artifacts.mjs"
+  },
+  "devDependencies": {
+    "@fhevm/hardhat-plugin": "0.4.2",
+    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
+    "hardhat": "^2.24.0"
+  },
+  "dependencies": {
+    "@fhevm/solidity": "0.11.1",
+    "@openzeppelin/confidential-contracts": "0.5.1",
+    "@openzeppelin/contracts": "^5.6.1",
+    "@openzeppelin/contracts-upgradeable": "^5.6.1"
+  }
+}
