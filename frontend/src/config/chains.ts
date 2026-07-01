@@ -3,6 +3,7 @@ import { defineChain } from "viem";
 export const SEPOLIA_CHAIN_ID = 11155111;
 export const WRAPPERS_REGISTRY_ADDRESS = "0x2f0750Bbb0A246059d80e94c454586a7F27a128e";
 export const PUBLIC_SEPOLIA_RPC = "https://ethereum-sepolia-rpc.publicnode.com";
+export const BLOCKSCOUT_URL = "https://eth-sepolia.blockscout.com";
 
 export const sepolia = defineChain({
   id: SEPOLIA_CHAIN_ID,

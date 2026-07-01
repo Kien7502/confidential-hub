@@ -18,16 +18,6 @@ export async function mintFaucet(provider: EthereumProvider, token: Address, acc
   });
 }
 
-/** Mint a cleartext amount of a standalone ERC7984 token (uint64 raw units). */
-export async function mintConfidential(provider: EthereumProvider, token: Address, account: Address, amount: bigint): Promise<Hex> {
-  const client = walletClient(provider);
-  return client.sendTransaction({
-    account,
-    to: token,
-    data: encodeFunctionData({ abi: erc7984Abi, functionName: "mint", args: [account, amount] })
-  });
-}
-
 /** Send confidential tokens to `to` using an encrypted amount handle + input proof. */
 export async function confidentialTransfer(
   provider: EthereumProvider,

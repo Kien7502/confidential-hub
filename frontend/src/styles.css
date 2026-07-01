@@ -79,10 +79,91 @@ pre {
 .sidebar {
   position: sticky;
   top: 0;
+  display: flex;
+  flex-direction: column;
   height: 100vh;
   border-right: 1px solid #232323;
   background: #000000;
   padding: 22px 14px;
+}
+
+.sidebar-footer {
+  margin-top: auto;
+  padding-top: 16px;
+}
+
+.wallet-connect {
+  width: 100%;
+}
+
+.wallet-menu-wrap {
+  position: relative;
+}
+
+.wallet-menu-wrap .wallet-button {
+  width: 100%;
+  justify-content: space-between;
+}
+
+.wallet-button.wallet-wrong {
+  border-color: #6f5530;
+}
+
+.wallet-chevron-down {
+  transform: rotate(180deg);
+}
+
+.wallet-menu-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+}
+
+.wallet-menu {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  z-index: 31;
+  display: grid;
+  gap: 2px;
+  border: 1px solid #3a3a3a;
+  border-radius: 12px;
+  background: #141414;
+  padding: 6px;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.5);
+}
+
+.wallet-menu button {
+  justify-content: flex-start;
+  border: none;
+  background: transparent;
+  min-height: 38px;
+  border-radius: 8px;
+  padding: 0 12px;
+}
+
+.wallet-menu button:hover {
+  background: #1f1f1f;
+}
+
+.wallet-menu-danger {
+  color: #ff8f66;
+}
+
+.toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 50;
+  border: 1px solid #3a3a3a;
+  border-radius: 999px;
+  background: #1f1f1f;
+  color: #f4f4f1;
+  padding: 10px 18px;
+  font-size: 13px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45);
 }
 
 .brand {
@@ -363,6 +444,24 @@ h2 {
   color: #7d7d76;
   font-size: 11px;
   overflow-wrap: anywhere;
+}
+
+.address-chip {
+  justify-self: start;
+  min-height: 22px;
+  padding: 2px 6px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: #7d7d76;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.address-chip:hover {
+  border-color: #3a3a3a;
+  color: #d8d8d1;
 }
 
 .token-info em {

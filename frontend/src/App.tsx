@@ -22,7 +22,7 @@ import {
 import { getAddress, isAddress, toHex, type Address, type Hex } from "viem";
 import { erc20Abi } from "./config/abis";
 import { CERC20_WRAPPER_ARTIFACT, PUBLIC_ERC20_ARTIFACT, STANDALONE_CERC7984_ARTIFACT } from "./config/artifacts";
-import { SEPOLIA_CHAIN_ID } from "./config/chains";
+import { BLOCKSCOUT_URL, SEPOLIA_CHAIN_ID } from "./config/chains";
 import { FAUCET_MAX_TOKENS } from "./config/officialPairs";
 import { cacheKey, estimateWrappedAmount, formatTokenAmount, isFaucetAmountAllowed, parseTokenAmount } from "./lib/amounts";
 import { buildOfficialRows, buildUserRows, pairIsActionable, uniqueShieldPairs, uniqueUnshieldPairs, type DashboardRow } from "./lib/dashboardRows";
@@ -91,6 +91,18 @@ export default function App({ privyConfigured }: { privyConfigured: boolean }) {
   const [addedTokens, setAddedTokens] = useState<AddedToken[]>([]);
   const [walletProvider, setWalletProvider] = useState<EthereumProvider>();
   const [flowIntent, setFlowIntent] = useState<FlowIntent>();
+  const [toast, setToast] = useState("");
+  const copyAddress = useCallback((value: string, label = "Address copied") => {
+    void navigator.clipboard?.writeText(value).then(
+      () => setToast(label),
+      () => setToast("Copy failed")
+    );
+  }, []);
+  useEffect(() => {
+    if (!toast) return;
+    const timer = setTimeout(() => setToast(""), 1500);
+    return () => clearTimeout(timer);
+  }, [toast]);
   const activeWallet = ethereumWallet(wallets);
   const account = activeWallet?.address && isAddress(activeWallet.address) ? getAddress(activeWallet.address) : undefined;
   const chainId = parsePrivyChainId(activeWallet?.chainId);
@@ -195,6 +207,24 @@ export default function App({ privyConfigured }: { privyConfigured: boolean }) {
             );
           })}
         </nav>
+        <div className="sidebar-footer">
+          {account ? (
+            <WalletMenu
+              account={account}
+              isSepolia={isSepolia}
+              onCopy={() => copyAddress(account)}
+              onExplorer={() => window.open(`${BLOCKSCOUT_URL}/address/${account}`, "_blank", "noopener,noreferrer")}
+              onActivity={() => setPage("activity")}
+              onSwitch={activeWallet && !isSepolia ? () => void activeWallet.switchChain(SEPOLIA_CHAIN_ID) : undefined}
+              onDisconnect={() => void logout()}
+            />
+          ) : (
+            <button className="primary wallet-connect" disabled={!privyConfigured || !privyReady || !walletsReady} onClick={() => void login()}>
+              <Wallet size={16} />
+              {privyConfigured ? "Connect wallet" : "Set Privy app ID"}
+            </button>
+          )}
+        </div>
       </aside>
 
       <main>
@@ -204,27 +234,12 @@ export default function App({ privyConfigured }: { privyConfigured: boolean }) {
             <h1>{titleFor(page)}</h1>
           </div>
           <div className="status-row">
-            {account ? (
-              <button className="wallet-button" onClick={() => void logout()}>
-                <Wallet size={16} />
-                {shortAddress(account)}
-              </button>
-            ) : (
-              <button className="primary" disabled={!privyConfigured || !privyReady || !walletsReady} onClick={() => void login()}>
-                <Wallet size={16} />
-                {privyConfigured ? "Connect wallet" : "Set Privy app ID"}
-              </button>
-            )}
-            {account && !isSepolia && activeWallet ? (
-              <button className="ghost" onClick={() => void activeWallet.switchChain(SEPOLIA_CHAIN_ID)}>
-                Switch
-              </button>
-            ) : null}
+            {account && !isSepolia ? <span className="pill warn">Wrong network</span> : null}
           </div>
         </header>
 
         {page === "dashboard" ? (
-          <Dashboard pairs={pairs} addedPairs={addedPairs} standaloneTokens={standaloneTokens} loading={pairsQuery.isLoading} account={account} provider={walletProvider} decryptSigner={decryptSigner} actionLocked={actionLocked} onNavigate={setPage} onNavigateFlow={navigateFlow} pushActivity={pushActivity} addedTokens={addedTokens} saveTokens={saveTokens} />
+          <Dashboard pairs={pairs} addedPairs={addedPairs} standaloneTokens={standaloneTokens} loading={pairsQuery.isLoading} account={account} provider={walletProvider} decryptSigner={decryptSigner} actionLocked={actionLocked} onNavigate={setPage} onNavigateFlow={navigateFlow} pushActivity={pushActivity} addedTokens={addedTokens} saveTokens={saveTokens} onCopyAddress={copyAddress} />
         ) : null}
         {page === "shield" || page === "unshield" ? (
           <UnifiedWrapPage pairs={allPairs} intent={flowIntent} account={account} provider={walletProvider} locked={actionLocked} pending={pendingUnwraps} savePending={savePending} onCreateWrapper={() => setPage("dashboard")} pushActivity={pushActivity} />
@@ -234,6 +249,50 @@ export default function App({ privyConfigured }: { privyConfigured: boolean }) {
         {page === "earn" ? <EarnPage /> : null}
         {page === "activity" ? <ActivityPage items={activity} /> : null}
       </main>
+      {toast ? <div className="toast">{toast}</div> : null}
+    </div>
+  );
+}
+
+function WalletMenu({
+  account,
+  isSepolia,
+  onCopy,
+  onExplorer,
+  onActivity,
+  onSwitch,
+  onDisconnect
+}: {
+  account: Address;
+  isSepolia: boolean;
+  onCopy: () => void;
+  onExplorer: () => void;
+  onActivity: () => void;
+  onSwitch?: () => void;
+  onDisconnect: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  function run(action: () => void) {
+    action();
+    setOpen(false);
+  }
+  return (
+    <div className="wallet-menu-wrap">
+      {open ? <div className="wallet-menu-overlay" onClick={() => setOpen(false)} /> : null}
+      {open ? (
+        <div className="wallet-menu">
+          <button onClick={() => run(onCopy)}>Copy address</button>
+          <button onClick={() => run(onExplorer)}>View on Blockscout</button>
+          <button onClick={() => run(onActivity)}>Activity</button>
+          {onSwitch ? <button onClick={() => run(onSwitch)}>Switch to Sepolia</button> : null}
+          <button className="wallet-menu-danger" onClick={() => run(onDisconnect)}>Disconnect</button>
+        </div>
+      ) : null}
+      <button className={isSepolia ? "wallet-button" : "wallet-button wallet-wrong"} onClick={() => setOpen((value) => !value)}>
+        <Wallet size={16} />
+        <span>{shortAddress(account)}</span>
+        <ChevronUp size={14} className={open ? "" : "wallet-chevron-down"} />
+      </button>
     </div>
   );
 }
@@ -263,7 +322,8 @@ function Dashboard({
   onNavigateFlow,
   pushActivity,
   addedTokens,
-  saveTokens
+  saveTokens,
+  onCopyAddress
 }: {
   pairs: TokenWrapperPair[];
   addedPairs: TokenWrapperPair[];
@@ -278,6 +338,7 @@ function Dashboard({
   pushActivity: (item: Omit<ActivityItem, "id" | "createdAt" | "chainId" | "account">) => void;
   addedTokens: AddedToken[];
   saveTokens: (items: AddedToken[]) => void;
+  onCopyAddress: (address: string) => void;
 }) {
   const [createRequest, setCreateRequest] = useState<CreateModalRequest | null>(null);
   const official = pairs.filter((pair) => pair.source === "official");
@@ -290,7 +351,7 @@ function Dashboard({
       <CollapsibleSection title="Your Token" action={`${yourCount} tokens`} defaultExpanded>
         <div className="pair-list">
           {customRows.map((row) => (
-            <TokenPairCard key={row.id} row={row} editable account={account} provider={provider} decryptSigner={decryptSigner} actionLocked={actionLocked} onNavigateFlow={onNavigateFlow} pushActivity={pushActivity} onCreate={setCreateRequest} />
+            <TokenPairCard key={row.id} row={row} editable account={account} provider={provider} decryptSigner={decryptSigner} actionLocked={actionLocked} onNavigateFlow={onNavigateFlow} pushActivity={pushActivity} onCreate={setCreateRequest} onCopyAddress={onCopyAddress} />
           ))}
           <button className="empty-pair" onClick={() => setCreateRequest({ tab: "add" })}>
             <span className="add-token-button">
@@ -302,7 +363,7 @@ function Dashboard({
       <CollapsibleSection title="Official Token" action={loading ? "Loading registry" : `${official.length} pairs`} defaultExpanded>
         <div className="pair-list">
           {officialRows.map((row) => (
-            <TokenPairCard key={row.id} row={row} editable={false} account={account} provider={provider} decryptSigner={decryptSigner} actionLocked={actionLocked} onNavigateFlow={onNavigateFlow} pushActivity={pushActivity} onCreate={setCreateRequest} />
+            <TokenPairCard key={row.id} row={row} editable={false} account={account} provider={provider} decryptSigner={decryptSigner} actionLocked={actionLocked} onNavigateFlow={onNavigateFlow} pushActivity={pushActivity} onCreate={setCreateRequest} onCopyAddress={onCopyAddress} />
           ))}
         </div>
       </CollapsibleSection>
@@ -338,7 +399,8 @@ function TokenPairCard({
   actionLocked,
   onNavigateFlow,
   pushActivity,
-  onCreate
+  onCreate,
+  onCopyAddress
 }: {
   row: DashboardRow;
   editable: boolean;
@@ -349,6 +411,7 @@ function TokenPairCard({
   onNavigateFlow: (intent: Omit<FlowIntent, "nonce">) => void;
   pushActivity: (item: Omit<ActivityItem, "id" | "createdAt" | "chainId" | "account">) => void;
   onCreate: (request: CreateModalRequest) => void;
+  onCopyAddress: (address: string) => void;
 }) {
   const [publicBalance, setPublicBalance] = useState<bigint>();
   const [handle, setHandle] = useState<Hex>();
@@ -436,6 +499,7 @@ function TokenPairCard({
         <TokenSide
           token={underlying}
           balance={formatTokenAmount(publicBalance, underlying.decimals)}
+          onCopyAddress={onCopyAddress}
         />
       ) : (
         <EmptySide label="Add ERC20" onClick={editable ? () => onCreate({ tab: "add", category: "erc20", address: pair?.underlying.address }) : undefined} />
@@ -461,6 +525,7 @@ function TokenPairCard({
           token={confidential}
           underlying={underlying}
           balance={encrypted ? "****" : confidentialBalance}
+          onCopyAddress={onCopyAddress}
           decrypt={{
             show: Boolean(handle && !hasZeroHandle),
             busy: decryptPhase !== "idle",
@@ -528,13 +593,15 @@ function TokenSide({
   token,
   underlying,
   balance,
-  decrypt
+  decrypt,
+  onCopyAddress
 }: {
   confidential?: boolean;
   token: TokenMetadata;
   underlying?: TokenMetadata;
   balance: string;
   decrypt?: { show: boolean; busy: boolean; phase: "idle" | "signing" | "decrypting"; error: string; onClick: () => void };
+  onCopyAddress?: (address: string) => void;
 }) {
   return (
     <div className="token-side">
@@ -542,7 +609,7 @@ function TokenSide({
       <div className="token-info">
         <strong>{token.symbol}</strong>
         <small>{token.name}</small>
-        <code>{shortAddress(token.address)}</code>
+        <button type="button" className="address-chip" title="Copy address" onClick={() => onCopyAddress?.(token.address)}>{shortAddress(token.address)}</button>
         <div className="balance-line">
           <em>Balance: {balance}</em>
           {decrypt?.show ? (
@@ -591,94 +658,6 @@ function SectionTitle({ title, action }: { title: string; action: string }) {
     <div className="section-title">
       <h2>{title}</h2>
       <span>{action}</span>
-    </div>
-  );
-}
-
-function StandaloneTokenCard({
-  token,
-  account,
-  provider,
-  decryptSigner,
-  pushActivity
-}: {
-  token: StandaloneConfidentialToken;
-  account?: Address;
-  provider?: EthereumProvider;
-  decryptSigner?: TypedDataSigner;
-  pushActivity: (item: Omit<ActivityItem, "id" | "createdAt" | "chainId" | "account">) => void;
-}) {
-  const [handle, setHandle] = useState<Hex>();
-  const [balanceStatus, setBalanceStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
-  const [decryptPhase, setDecryptPhase] = useState<"idle" | "signing" | "decrypting">("idle");
-  const [decryptError, setDecryptError] = useState("");
-  const cache = readDecryptCache();
-  const cached = account && handle ? cache[cacheKey(SEPOLIA_CHAIN_ID, account, token.confidential.address, handle)] : undefined;
-  const hasZeroHandle = isZeroConfidentialHandle(handle);
-  const confidentialBalance = getConfidentialBalanceLabel({
-    handle,
-    cachedValue: cached?.value,
-    decimals: token.confidential.decimals,
-    symbol: token.confidential.symbol,
-    status: balanceStatus,
-    error: decryptError
-  });
-  const encrypted = confidentialBalance === "encrypted";
-
-  async function refreshBalance() {
-    if (!account) return;
-    setBalanceStatus("loading");
-    setDecryptError("");
-    try {
-      const confidentialHandle = await readConfidentialHandle(publicClient, token.confidential.address, account);
-      setHandle(confidentialHandle);
-      setBalanceStatus("ready");
-    } catch (error) {
-      setBalanceStatus("error");
-      setDecryptError(error instanceof Error ? error.message : String(error));
-    }
-  }
-
-  useEffect(() => {
-    void refreshBalance();
-  }, [account, token.id]);
-
-  async function decryptBalance() {
-    if (!account || !provider || !handle || hasZeroHandle) {
-      setDecryptError(!account ? "Connect a wallet before decrypting." : !provider ? "Wallet provider is not ready yet." : "No encrypted balance to decrypt.");
-      return;
-    }
-    setDecryptPhase("signing");
-    setDecryptError("");
-    try {
-      const value = await runUserDecrypt(provider, token.confidential.address, account, handle, decryptSigner, (phase) => setDecryptPhase(phase));
-      const next = readDecryptCache();
-      next[cacheKey(SEPOLIA_CHAIN_ID, account, token.confidential.address, handle)] = { value, lastDecryptedAt: Date.now() };
-      writeDecryptCache(next);
-      pushActivity({ type: "decrypt", status: "success", title: `Decrypted ${token.confidential.symbol} balance`, detail: `${formatTokenAmount(BigInt(value), token.confidential.decimals)} ${token.confidential.symbol}` });
-    } catch (error) {
-      const detail = error instanceof Error ? error.message : String(error);
-      setDecryptError(detail);
-      pushActivity({ type: "decrypt", status: "failed", title: `Decrypt ${token.confidential.symbol} failed`, detail });
-    } finally {
-      setDecryptPhase("idle");
-    }
-  }
-
-  return (
-    <div className="token-pair-card standalone-card">
-      <TokenSide
-        confidential
-        token={token.confidential}
-        balance={encrypted ? "****" : confidentialBalance}
-        decrypt={{
-          show: Boolean(handle && !hasZeroHandle),
-          busy: decryptPhase !== "idle",
-          phase: decryptPhase,
-          error: decryptError,
-          onClick: () => void decryptBalance()
-        }}
-      />
     </div>
   );
 }
