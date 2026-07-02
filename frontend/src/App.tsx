@@ -21,7 +21,7 @@ import {
 } from "lucide-react";
 import { getAddress, isAddress, toHex, type Address, type Hex } from "viem";
 import { erc20Abi } from "./config/abis";
-import { CERC20_WRAPPER_ARTIFACT, PUBLIC_ERC20_ARTIFACT, STANDALONE_CERC7984_ARTIFACT } from "./config/artifacts";
+import { CERC20_WRAPPER_ARTIFACT, PUBLIC_ERC20_ARTIFACT } from "./config/artifacts";
 import { BLOCKSCOUT_URL, SEPOLIA_CHAIN_ID } from "./config/chains";
 import { FAUCET_MAX_TOKENS } from "./config/officialPairs";
 import { cacheKey, estimateWrappedAmount, formatTokenAmount, isFaucetAmountAllowed, parseTokenAmount } from "./lib/amounts";
@@ -48,7 +48,7 @@ type FlowIntent = { page: "shield" | "unshield"; pairId?: string; tokenAddress?:
 type CreateModalRequest = {
   tab: "add" | "create";
   category?: AddedToken["category"];
-  createKind?: "erc20" | "standalone" | "wrapper";
+  createKind?: "erc20" | "wrapper";
   address?: Address;
   underlyingAddress?: Address;
 };
@@ -79,6 +79,34 @@ function parsePrivyChainId(chainId?: string): number | undefined {
 
 function ethereumWallet(wallets: ConnectedWallet[]): ConnectedWallet | undefined {
   return wallets.find((wallet) => wallet.type === "ethereum");
+}
+
+function dedupeAddedTokens(tokens: AddedToken[]): AddedToken[] {
+  const seen = new Map<string, AddedToken>();
+  for (const token of tokens) {
+    const key = token.address.toLowerCase();
+    const existing = seen.get(key);
+    seen.set(
+      key,
+      existing
+        ? {
+            ...existing,
+            category: token.category,
+            label: token.label || existing.label,
+            iconUrl: token.iconUrl || existing.iconUrl,
+            createdAt: existing.createdAt
+          }
+        : token
+    );
+  }
+  return Array.from(seen.values());
+}
+
+function walletErrorMessage(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
+  return /user rejected|user denied|rejected request|request rejected|denied transaction|cancel/i.test(message)
+    ? "Transaction was cancelled."
+    : message;
 }
 
 export default function App({ privyConfigured }: { privyConfigured: boolean }) {
@@ -132,7 +160,7 @@ export default function App({ privyConfigured }: { privyConfigured: boolean }) {
 
   const pairs = pairsQuery.data ?? [];
   const addedPairs = addedTokensQuery.data?.pairs ?? [];
-  const standaloneTokens = addedTokensQuery.data?.standalone ?? [];
+  const standaloneTokens: StandaloneConfidentialToken[] = [];
   const allPairs = useMemo(() => [...pairs, ...addedPairs], [pairs, addedPairs]);
   const isSepolia = chainId === SEPOLIA_CHAIN_ID;
   const actionLocked = !privyConfigured || !account || !isSepolia || !walletProvider;
@@ -177,8 +205,9 @@ export default function App({ privyConfigured }: { privyConfigured: boolean }) {
   }
 
   function saveTokens(items: AddedToken[]) {
-    setAddedTokens(items);
-    writeAddedTokens(items, account);
+    const deduped = dedupeAddedTokens(items);
+    setAddedTokens(deduped);
+    writeAddedTokens(deduped, account);
   }
 
   function navigateFlow(intent: Omit<FlowIntent, "nonce">) {
@@ -535,7 +564,7 @@ function TokenPairCard({
           }}
         />
       ) : (
-        <EmptySide label="Create cToken" onClick={editable ? () => onCreate({ tab: "create", createKind: "wrapper", underlyingAddress: underlying?.address }) : undefined} />
+        <EmptySide label="Add ERC7984" onClick={editable ? () => onCreate({ tab: "add", category: "verified-ctoken", underlyingAddress: underlying?.address }) : undefined} />
       )}
     </div>
   );
@@ -684,7 +713,8 @@ function CreateTokenModal({
   request: CreateModalRequest;
 }) {
   const [tab, setTab] = useState<"add" | "create">(request.tab);
-  const [category, setCategory] = useState<AddedToken["category"]>(request.category ?? "erc20");
+  const initialCategory: AddedToken["category"] = request.category === "ctoken" ? "verified-ctoken" : request.category ?? "erc20";
+  const [category, setCategory] = useState<AddedToken["category"]>(initialCategory);
   const [address, setAddress] = useState(request.address ?? "");
   const [label, setLabel] = useState("");
   const [iconUrl, setIconUrl] = useState("");
@@ -704,9 +734,18 @@ function CreateTokenModal({
 
   function addToken() {
     if (!isAddress(address)) return;
-    const token: AddedToken = { id: nowId("token"), category, address: getAddress(address), label, iconUrl: normalizeIconUrl(iconUrl), createdAt: Date.now() };
-    saveTokens([token, ...addedTokens]);
-    pushActivity({ type: "add-token", status: "info", title: `Added ${category}`, detail: label || shortAddress(address) });
+    const normalizedAddress = getAddress(address);
+    const existing = addedTokens.find((token) => token.address.toLowerCase() === normalizedAddress.toLowerCase());
+    const token: AddedToken = {
+      id: existing?.id ?? nowId("token"),
+      category,
+      address: normalizedAddress,
+      label,
+      iconUrl: normalizeIconUrl(iconUrl),
+      createdAt: existing?.createdAt ?? Date.now()
+    };
+    saveTokens([token, ...addedTokens.filter((item) => item.address.toLowerCase() !== normalizedAddress.toLowerCase())]);
+    pushActivity({ type: "add-token", status: "info", title: existing ? `Updated ${category}` : `Added ${category}`, detail: label || shortAddress(normalizedAddress) });
     onClose();
   }
 
@@ -714,6 +753,24 @@ function CreateTokenModal({
   const decimalsValid = Number.isInteger(decimalsNum) && decimalsNum >= 0 && decimalsNum <= 18;
   // Mint is optional; when provided it must be a positive number.
   const mintValid = mintAmount.trim() === "" || Number(mintAmount) > 0;
+  const selectedUnderlying = pairs.find((pair) => pair.underlying.address.toLowerCase() === underlying.toLowerCase())?.underlying;
+  const [autoWrapperName, setAutoWrapperName] = useState("");
+  const [autoWrapperSymbol, setAutoWrapperSymbol] = useState("");
+
+  useEffect(() => {
+    setDeployError("");
+    setDeployPhase("idle");
+  }, [tab, createKind]);
+
+  useEffect(() => {
+    if (createKind !== "wrapper" || !selectedUnderlying) return;
+    const nextName = `c${selectedUnderlying.name}`;
+    const nextSymbol = `c${selectedUnderlying.symbol}`;
+    setName((current) => (current.trim() === "" || current === autoWrapperName ? nextName : current));
+    setSymbol((current) => (current.trim() === "" || current === autoWrapperSymbol ? nextSymbol : current));
+    setAutoWrapperName(nextName);
+    setAutoWrapperSymbol(nextSymbol);
+  }, [autoWrapperName, autoWrapperSymbol, createKind, selectedUnderlying]);
   const createReady =
     !actionLocked &&
     Boolean(provider && account) &&
@@ -735,20 +792,16 @@ function CreateTokenModal({
         // Initial supply is minted inside the constructor: a single deploy tx.
         const initialSupply = wantMint ? parseTokenAmount(mintAmount, decimalsNum) : 0n;
         deployed = await deployContract(provider, account, PUBLIC_ERC20_ARTIFACT, [name, symbol, decimalsNum, initialSupply]);
-      } else if (createKind === "standalone") {
-        // ERC7984 mint takes uint64 raw units; minted inside the constructor.
-        const initialAmount = wantMint ? BigInt(Math.trunc(Number(mintAmount))) : 0n;
-        deployed = await deployContract(provider, account, STANDALONE_CERC7984_ARTIFACT, [name, symbol, tokenURI, initialAmount]);
       } else {
         deployed = await deployContract(provider, account, CERC20_WRAPPER_ARTIFACT, [getAddress(underlying), name, symbol, tokenURI]);
       }
-      const category: AddedToken["category"] = createKind === "erc20" ? "erc20" : createKind === "wrapper" ? "verified-ctoken" : "ctoken";
+      const category: AddedToken["category"] = createKind === "erc20" ? "erc20" : "verified-ctoken";
       const token: AddedToken = { id: nowId("token"), category, address: deployed.address, label: name, iconUrl: normalizeIconUrl(iconUrl), createdAt: Date.now() };
-      saveTokens([token, ...addedTokens]);
+      saveTokens([token, ...addedTokens.filter((item) => item.address.toLowerCase() !== deployed.address.toLowerCase())]);
       pushActivity({ type: "add-token", status: "success", title: `Deployed ${symbol}`, detail: shortAddress(deployed.address), txHash: deployed.txHash });
       onClose();
     } catch (error) {
-      setDeployError(error instanceof Error ? error.message : String(error));
+      setDeployError(walletErrorMessage(error));
     } finally {
       setDeploying(false);
       setDeployPhase("idle");
@@ -772,13 +825,12 @@ function CreateTokenModal({
           <div className="form-grid">
             <select value={category} onChange={(event) => setCategory(event.target.value as AddedToken["category"])}>
               <option value="erc20">ERC20</option>
-              <option value="ctoken">Regular cToken</option>
-              <option value="verified-ctoken">Official / verified cToken</option>
+              <option value="verified-ctoken">ERC7984 / cToken wrapper</option>
             </select>
-            <input value={address} onChange={(event) => setAddress(event.target.value)} placeholder="0x token address" />
+            <input value={address} onChange={(event) => setAddress(event.target.value)} placeholder={category === "erc20" ? "0x ERC20 address" : "0x ERC7984 wrapper address"} />
             <input value={label} onChange={(event) => setLabel(event.target.value)} placeholder="Label" />
             <input value={iconUrl} onChange={(event) => setIconUrl(event.target.value)} placeholder="Icon URL (https:// or ipfs://, optional)" />
-            <p className="result">Token type is detected automatically from the contract on-chain.</p>
+            <p className="result">{request.underlyingAddress && category === "verified-ctoken" ? `Add the ERC7984 wrapper for ${shortAddress(request.underlyingAddress)}.` : "Token type is detected automatically from the contract on-chain."}</p>
             <button className="primary wide" disabled={!isAddress(address)} onClick={addToken}>
               <Plus size={16} />
               Add token
@@ -795,11 +847,10 @@ function CreateTokenModal({
           <div className="form-grid">
             <select value={createKind} onChange={(event) => setCreateKind(event.target.value as CreateKind)}>
               <option value="erc20">ERC20 (public underlying)</option>
-              <option value="standalone">ERC7984 (standalone confidential)</option>
-              <option value="wrapper">ERC7984 wrapper (wraps an ERC20)</option>
+              <option value="wrapper">Confidential token (ERC7984 wrapper)</option>
             </select>
-            <input value={name} onChange={(event) => setName(event.target.value)} placeholder="Token name" />
-            <input value={symbol} onChange={(event) => setSymbol(event.target.value)} placeholder="Symbol" />
+            <input value={name} onChange={(event) => setName(event.target.value)} placeholder={createKind === "wrapper" ? "Confidential token name" : "Token name"} />
+            <input value={symbol} onChange={(event) => setSymbol(event.target.value)} placeholder={createKind === "wrapper" ? "Confidential symbol" : "Symbol"} />
             <input value={iconUrl} onChange={(event) => setIconUrl(event.target.value)} placeholder="Icon URL (https:// or ipfs://, optional)" />
             {createKind === "erc20" ? (
               <input value={decimals} onChange={(event) => setDecimals(event.target.value)} inputMode="numeric" placeholder="Decimals (e.g. 18)" />
@@ -823,13 +874,13 @@ function CreateTokenModal({
                 value={mintAmount}
                 onChange={(event) => setMintAmount(event.target.value)}
                 inputMode="decimal"
-                placeholder={createKind === "erc20" ? "Initial mint to you (optional)" : "Initial mint amount, whole units (optional)"}
+                placeholder="Initial mint to you (optional)"
               />
             )}
             <p className="result">
               {createKind === "wrapper"
-                ? "Deploys a real wrapper to Sepolia. Its balance comes from wrapping the underlying ERC20."
-                : "Deploys a real contract to Sepolia via your wallet, then mints the initial amount to you."}
+                ? "Deploys a real wrapper to Sepolia. Name and symbol are prefilled as c + the selected ERC20."
+                : "Deploys a real ERC20 contract to Sepolia via your wallet, then mints the initial amount to you."}
             </p>
             {deployError ? <p className="warning">{deployError}</p> : null}
             <button className="primary wide" disabled={!createReady || deploying} onClick={() => void createToken()}>
@@ -943,6 +994,7 @@ function UnifiedWrapPage({
   const [pairId, setPairId] = useState("");
   const [amount, setAmount] = useState("");
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
   const [publicBalance, setPublicBalance] = useState<bigint>();
   const [confidentialHandle, setConfidentialHandle] = useState<Hex>();
   const [phase, setPhase] = useState<"idle" | "checking" | "approving" | "wrapping" | "requesting">("idle");
@@ -1600,6 +1652,7 @@ function FaucetPage({
   const [pairId, setPairId] = useState("");
   const [amount, setAmount] = useState("1000000");
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
   const pair = faucetPairs.find((item) => item.id === pairId) ?? faucetPairs[0];
   const parsed = pair ? parseTokenAmount(amount, pair.underlying.decimals) : 0n;
   const allowed = pair ? isFaucetAmountAllowed(parsed, pair.underlying.decimals, FAUCET_MAX_TOKENS) : false;
@@ -1611,11 +1664,14 @@ function FaucetPage({
   async function submit() {
     if (!account || !provider || !pair || !allowed) return;
     setBusy(true);
+    setError("");
     try {
       const txHash = await mintFaucet(provider, pair.underlying.address, account, parsed);
       pushActivity({ type: "faucet", status: "pending", title: `Claim ${pair.underlying.symbol}`, detail: `${amount} tokens`, txHash });
     } catch (error) {
-      pushActivity({ type: "faucet", status: "failed", title: "Faucet failed", detail: error instanceof Error ? error.message : String(error) });
+      const message = walletErrorMessage(error);
+      setError(message);
+      pushActivity({ type: "faucet", status: "failed", title: "Faucet failed", detail: message });
     } finally {
       setBusy(false);
     }
@@ -1625,6 +1681,7 @@ function FaucetPage({
     <ActionPanel icon={Banknote} locked={locked} title="Claim mock underlying" disabled={!pair || !allowed || busy} submitLabel={busy ? "Claiming" : "Claim"} onSubmit={submit}>
       <PairSelect pairs={faucetPairs} value={pair?.id ?? ""} setValue={setPairId} />
       <input value={amount} onChange={(event) => setAmount(event.target.value)} inputMode="decimal" />
+      {error ? <p className="warning">{error}</p> : null}
       <div className="quote">
         <span>Per-call limit</span>
         <strong>1,000,000 {pair?.underlying.symbol}</strong>

@@ -176,3 +176,14 @@
 
 - Đưa nút `Decrypt` vào cùng dòng với `Balance` trong token row.
 - Thu nhỏ nút decrypt để phù hợp với metadata row và không chiếm cell riêng.
+
+## Hoàn tất sửa Add/Create token và cancel mint
+
+- Modal Add/Create chỉ còn hai tab Add existing và Create new; Add chỉ còn ERC20 hoặc ERC7984/cToken wrapper, không còn regular/standalone confidential option.
+- Create new chỉ còn ERC20 public underlying hoặc ERC7984 wrapper; bỏ deploy standalone confidential token khỏi UI/flow.
+- Dấu cộng bên phải hàng ERC20 giờ mở Add ERC7984 wrapper thay vì mặc định Create wrapper.
+- Khi create wrapper, name/symbol confidential token tự điền theo dạng c + underlying token nếu chọn underlying từ danh sách.
+- Added tokens được dedupe theo address, add lại cùng address sẽ update metadata thay vì tạo dòng lặp.
+- Faucet/create transaction cancellation được format thành Transaction was cancelled và faucet hiển thị lỗi inline.
+- Chạy npm test: pass 4 files / 16 tests.
+- Chạy npm run build: pass; còn warning chunk/PURE annotation từ Privy/Zama dependencies.
