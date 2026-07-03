@@ -1488,7 +1488,7 @@ function UnifiedWrapPage({
       const txHash = await wrapToken(provider, pair.confidential.address, account, parsed);
       pushActivity({ type: "wrap", status: "pending", title: `Shield ${pair.underlying.symbol}`, detail: `${amount} ${pair.underlying.symbol}`, txHash });
       await waitForTransactionSuccess(txHash);
-      pushActivity({ type: "wrap", status: "success", title: `Shielded ${pair.underlying.symbol}`, detail: `${amount} ${pair.underlying.symbol}`, txHash });
+      pushActivity({ type: "wrap", status: "success", title: `Shielded ${pair.underlying.symbol}`, detail: `${amount} ${pair.underlying.symbol}`, txHash, tokenSymbol: pair.confidential.symbol, tokenIconUrl: pair.confidential.iconUrl ?? pair.underlying.iconUrl, tokenConfidential: true, amount: `${outputAmount} ${pair.confidential.symbol}` });
       setShieldResult({
         approvalTxHash: approval,
         wrapTxHash: txHash,
@@ -1882,7 +1882,7 @@ function SendPage({
     try {
       const encrypted = await createEncryptedInput(provider, selected.address, account, parsed);
       const txHash = await confidentialTransfer(provider, selected.address, account, getAddress(recipient), encrypted.handle, encrypted.proof);
-      pushActivity({ type: "send", status: "pending", title: `Send ${selected.metadata.symbol}`, detail: `${amount} ${selected.metadata.symbol} → ${shortAddress(recipient)}`, txHash });
+      pushActivity({ type: "send", status: "pending", title: `Send ${selected.metadata.symbol}`, detail: `${amount} ${selected.metadata.symbol} → ${shortAddress(recipient)}`, txHash, tokenSymbol: selected.metadata.symbol, tokenIconUrl: selected.metadata.iconUrl ?? selected.underlying?.iconUrl, tokenConfidential: true, amount: `${amount} ${selected.metadata.symbol}` });
       setAmount("");
       setRecipient("");
     } catch (err) {
@@ -1963,7 +1963,7 @@ function FaucetPage({
     setError("");
     try {
       const txHash = await mintFaucet(provider, pair.underlying.address, account, parsed);
-      pushActivity({ type: "faucet", status: "pending", title: `Claim ${pair.underlying.symbol}`, detail: `${amount} tokens`, txHash });
+      pushActivity({ type: "faucet", status: "pending", title: `Claim ${pair.underlying.symbol}`, detail: `${amount} tokens`, txHash, tokenSymbol: pair.underlying.symbol, tokenIconUrl: pair.underlying.iconUrl, amount: `${amount} ${pair.underlying.symbol}` });
     } catch (error) {
       const message = walletErrorMessage(error);
       setError(message);
