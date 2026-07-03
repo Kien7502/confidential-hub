@@ -291,14 +291,17 @@ export default function App({ privyConfigured }: { privyConfigured: boolean }) {
               onCopy={() => copyAddress(account)}
               onExplorer={() => window.open(`${BLOCKSCOUT_URL}/address/${account}`, "_blank", "noopener,noreferrer")}
               onSwitch={activeWallet && !isSepolia ? () => void activeWallet.switchChain(SEPOLIA_CHAIN_ID) : undefined}
-              onDisconnect={() => {
-                try {
-                  activeWallet?.disconnect?.();
-                } catch {
-                  // ignore: external wallets may not expose disconnect
-                }
+              onDisconnect={async () => {
+                // Disconnect every connected wallet first — otherwise an
+                // injected/external wallet stays in useWallets() after logout
+                // and the UI still reads as connected.
+                await Promise.allSettled(wallets.map((wallet) => wallet.disconnect?.()));
                 setWalletProvider(undefined);
-                void logout();
+                try {
+                  await logout();
+                } catch {
+                  // logout can reject if the Privy session is already gone
+                }
               }}
             />
           ) : (
@@ -988,17 +991,37 @@ function confidentialBalancePreview(handle: Hex | undefined, symbol: string) {
   return isZeroConfidentialHandle(handle) ? `0 ${symbol}` : "****";
 }
 
+/** Shield-badge fill per token. Falls back to Zama yellow when the token's
+ *  colour can't be resolved. Keyed by upper-cased symbol without the c-prefix. */
+const SHIELD_FILL: Record<string, string> = {
+  ZAMA: "#FFD208",
+  USDC: "#2775CA",
+  USDT: "#50AF95",
+  TGBP: "#499BE5",
+  XAUT: "#F5E7BF",
+  BRON: "#4A1FA9",
+  WETH: "#FF0079",
+  STEAKCUSDC: "#086552",
+  BBQTGBP: "#086552"
+};
+
+function shieldFillFor(symbol: string) {
+  const key = symbol.replace(/mock$/i, "").replace(/^c/, "").toUpperCase();
+  return SHIELD_FILL[key] ?? "#FFD208";
+}
+
 function TokenAvatar({ token, confidential, underlying, size }: { token: TokenMetadata; confidential?: boolean; underlying?: TokenMetadata; size?: "sm" | "lg" }) {
   const icon = confidential ? iconForConfidentialToken(token, underlying) : resolveTokenIcon(token);
   const label = confidential ? `c${token.symbol.slice(0, 1).toUpperCase()}` : token.symbol.slice(0, 1).toUpperCase();
   const [broken, setBroken] = useState(false);
   useEffect(() => setBroken(false), [icon.url]);
   const className = ["token-avatar", size ? size : "", confidential ? "confidential-avatar" : ""].filter(Boolean).join(" ");
+  const shieldFill = confidential ? shieldFillFor((underlying ?? token).symbol) : undefined;
   return (
     <span className={className}>
       {icon.url && !broken ? <img src={icon.url} alt="" onError={() => setBroken(true)} /> : label}
       {confidential ? (
-        <span className="token-shield" aria-hidden="true">
+        <span className="token-shield" aria-hidden="true" style={{ ["--token-shield-fill" as string]: shieldFill }}>
           <TokenShieldIcon />
         </span>
       ) : null}
@@ -1008,8 +1031,21 @@ function TokenAvatar({ token, confidential, underlying, size }: { token: TokenMe
 
 function TokenShieldIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <path d="M12 2 4 5v6c0 5 3.5 8.5 8 10 4.5-1.5 8-5 8-10V5l-8-3Zm-1.2 13.4L7.3 11.9l1.1-1.1 2.4 2.4 4.8-4.8 1.1 1.1-5.9 5.9Z" />
+    <svg
+      viewBox="0 0 24.3965 29.9991"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className="token-shield-svg"
+      aria-hidden="true"
+    >
+      <path
+        d="M23.3962 16.398C23.3962 23.3969 18.4971 26.8963 12.674 28.926C12.3691 29.0293 12.0379 29.0243 11.7362 28.912C5.89918 26.8963 1 23.3969 1 16.398V6.59969C1 6.22845 1.14748 5.87242 1.40998 5.60991C1.67249 5.3474 2.02852 5.19993 2.39976 5.19993C5.19929 5.19993 8.69871 3.52021 11.1343 1.39256C11.4308 1.1392 11.8081 1 12.1981 1C12.5882 1 12.9654 1.1392 13.2619 1.39256C15.7115 3.5342 19.1969 5.19993 21.9965 5.19993C22.3677 5.19993 22.7237 5.3474 22.9863 5.60991C23.2488 5.87242 23.3962 6.22845 23.3962 6.59969V16.398Z"
+        fill="var(--token-shield-fill, currentColor)"
+      />
+      <path
+        d="M22.3965 6.59961C22.3965 6.49374 22.3541 6.39231 22.2793 6.31738C22.2043 6.24241 22.1021 6.2002 21.9961 6.2002C18.8771 6.20005 15.172 4.38716 12.6123 2.15234C12.4969 2.05387 12.35 2.00003 12.1982 2C12.0464 2 11.8997 2.05466 11.7842 2.15332L11.7832 2.15234C9.23832 4.37234 5.51912 6.2002 2.39941 6.2002C2.29352 6.20029 2.19208 6.24249 2.11719 6.31738C2.04232 6.39232 2.00002 6.49368 2 6.59961V16.3984C2.00009 19.6336 3.12049 22.0083 4.89453 23.8252C6.58336 25.5548 8.90443 26.8174 11.5332 27.7783L12.0625 27.9668L12.085 27.9746C12.1704 28.0064 12.2641 28.0073 12.3506 27.9785C15.1881 26.9888 17.704 25.6728 19.5029 23.8271C21.2757 22.0082 22.3964 19.6334 22.3965 16.3984V6.59961ZM17.1035 10.8926C17.5 10.5081 18.1331 10.5176 18.5176 10.9141C18.9019 11.3106 18.8915 11.9437 18.4951 12.3281L11.2012 19.4014C10.8133 19.7775 10.1965 19.7775 9.80859 19.4014L6.49316 16.1865C6.09668 15.8021 6.08721 15.1689 6.47168 14.7725C6.85614 14.376 7.48927 14.3656 7.88574 14.75L10.5049 17.29L17.1035 10.8926ZM24.3965 16.3984C24.3964 20.1618 23.0668 23.036 20.9346 25.2236C18.8295 27.3833 15.9858 28.8304 13.0029 29.8701L12.9951 29.873C12.4799 30.0476 11.9214 30.0401 11.4102 29.8555V29.8574C8.41944 28.8247 5.57133 27.3809 3.46387 25.2227C1.32923 23.0364 9.13742e-05 20.1617 0 16.3984V6.59961C2.17195e-05 5.96318 0.253102 5.35237 0.703125 4.90234C1.15305 4.45261 1.76325 4.20029 2.39941 4.2002C4.87533 4.2002 8.15048 2.67163 10.4766 0.639648L10.4844 0.631836C10.962 0.22378 11.57 0 12.1982 0C12.7479 2.58125e-05 13.2817 0.171938 13.7266 0.488281L13.9111 0.631836L13.9199 0.639648C16.2589 2.68459 19.5195 4.20004 21.9961 4.2002C22.6324 4.2002 23.2433 4.45244 23.6934 4.90234C24.1434 5.35237 24.3965 5.96318 24.3965 6.59961V16.3984Z"
+        fill="white"
+      />
     </svg>
   );
 }
@@ -2023,9 +2059,34 @@ function activityIcon(type: ActivityItem["type"]) {
   }
 }
 
+const ACTIVITY_ACTION_LABEL: Record<ActivityItem["type"], string> = {
+  faucet: "Minted",
+  approve: "Approved",
+  wrap: "Shielded",
+  "unwrap-request": "Unshield requested",
+  "unwrap-finalize": "Unshield finalized",
+  decrypt: "Decrypted",
+  "add-token": "Added token",
+  send: "Sent"
+};
+
+function formatActivityDate(ms: number) {
+  const d = new Date(ms);
+  const date = d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  const time = d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false });
+  return `${date}, ${time}`;
+}
+
+const ACTIVITY_PAGE_SIZE = 8;
+
 function ActivityPage({ items }: { items: ActivityItem[] }) {
+  const [page, setPage] = useState(0);
+  const pageCount = Math.max(1, Math.ceil(items.length / ACTIVITY_PAGE_SIZE));
+  const current = Math.min(page, pageCount - 1);
+  const slice = items.slice(current * ACTIVITY_PAGE_SIZE, current * ACTIVITY_PAGE_SIZE + ACTIVITY_PAGE_SIZE);
+
   return (
-    <div className="panel" style={{ maxWidth: 820 }}>
+    <div className="panel" style={{ maxWidth: 900 }}>
       <div className="section-title">
         <h2>Activity</h2>
         <span className="hint">Local log · this browser only</span>
@@ -2037,26 +2098,55 @@ function ActivityPage({ items }: { items: ActivityItem[] }) {
           <span>Shield, unshield, decrypt, mint and send actions show up here.</span>
         </div>
       ) : (
-        <div className="activity-list">
-          {items.map((item) => (
-            <div className="activity-item" key={item.id}>
-              <div className="activity-left">
-                <span className="activity-icon">{activityIcon(item.type)}</span>
-                <div className="activity-meta">
-                  <strong>{item.title}</strong>
-                  <span>{item.detail ?? item.status}</span>
-                </div>
-              </div>
-              <div className="activity-right">
-                {item.txHash ? (
-                  <a href={transactionUrl(item.txHash)} target="_blank" rel="noreferrer">{shortAddress(item.txHash)}</a>
-                ) : (
-                  <span className="local-tag">{new Date(item.createdAt).toLocaleTimeString()}</span>
-                )}
+        <>
+          <div className="activity-table">
+            <div className="activity-thead">
+              <span>Token</span>
+              <span>Amount</span>
+              <span>Action</span>
+              <span>Date</span>
+              <span />
+            </div>
+            {slice.map((item) => {
+              const rowInner = (
+                <>
+                  <span className="act-token">
+                    {item.tokenSymbol ? (
+                      <TokenAvatar
+                        token={{ address: "0x0000000000000000000000000000000000000000", name: item.tokenSymbol, symbol: item.tokenSymbol, decimals: 0, iconUrl: item.tokenIconUrl }}
+                        confidential={item.tokenConfidential}
+                        size="sm"
+                      />
+                    ) : (
+                      <span className="activity-icon">{activityIcon(item.type)}</span>
+                    )}
+                    <span className="act-token-name">{item.tokenSymbol ?? item.title}</span>
+                  </span>
+                  <span className="act-amount">{item.amount ?? "—"}</span>
+                  <span className="act-action">
+                    <span className={`act-badge ${item.status}`}>{activityIcon(item.type)}{ACTIVITY_ACTION_LABEL[item.type]}</span>
+                  </span>
+                  <span className="act-date">{formatActivityDate(item.createdAt)}</span>
+                  <span className="act-arrow">{item.txHash ? <ChevronRight size={16} /> : null}</span>
+                </>
+              );
+              return item.txHash ? (
+                <a key={item.id} className="activity-trow" href={transactionUrl(item.txHash)} target="_blank" rel="noreferrer">{rowInner}</a>
+              ) : (
+                <div key={item.id} className="activity-trow static">{rowInner}</div>
+              );
+            })}
+          </div>
+          {pageCount > 1 ? (
+            <div className="activity-pager">
+              <span>Page {current + 1} of {pageCount}</span>
+              <div className="activity-pager-actions">
+                <button className="btn sm" disabled={current === 0} onClick={() => setPage(current - 1)}>Previous</button>
+                <button className="btn sm" disabled={current >= pageCount - 1} onClick={() => setPage(current + 1)}>Next</button>
               </div>
             </div>
-          ))}
-        </div>
+          ) : null}
+        </>
       )}
     </div>
   );

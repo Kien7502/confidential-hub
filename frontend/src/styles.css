@@ -330,21 +330,17 @@ code, pre, .mono { font-family: var(--mono); }
 /* Shield badge — dark disc keeps it legible over any logo color */
 .token-shield {
   position: absolute;
-  right: -5px; bottom: -5px;
+  right: -4px; bottom: -4px;
   z-index: 2;
-  display: grid; place-items: center;
-  width: 18px; height: 18px;
-  border-radius: var(--r-pill);
-  background: var(--input-bg);
-  border: 1.5px solid var(--canvas);
+  display: block;
+  width: 15px; height: 18px;
   color: var(--accent);
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.6));
+  pointer-events: none;
 }
-.token-shield svg { width: 11px; height: 11px; display: block; }
-.token-avatar.sm .token-shield { width: 15px; height: 15px; right: -4px; bottom: -4px; }
-.token-avatar.sm .token-shield svg { width: 9px; height: 9px; }
-.token-avatar.lg .token-shield { width: 22px; height: 22px; }
-.token-avatar.lg .token-shield svg { width: 13px; height: 13px; }
+.token-shield-svg { width: 100%; height: 100%; display: block; }
+.token-avatar.sm .token-shield { width: 12px; height: 15px; right: -3px; bottom: -3px; }
+.token-avatar.lg .token-shield { width: 19px; height: 23px; right: -5px; bottom: -5px; }
 
 /* ---------- Panels / cards ---------- */
 .panel {

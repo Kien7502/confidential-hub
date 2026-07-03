@@ -76,6 +76,11 @@ export type ActivityItem = {
   detail?: string;
   txHash?: Hex;
   createdAt: number;
+  // Optional structured fields for the Activity table (token column + amount column).
+  tokenSymbol?: string;
+  tokenIconUrl?: string;
+  tokenConfidential?: boolean;
+  amount?: string;
 };
 
 export type AddedToken = {

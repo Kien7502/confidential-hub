@@ -104,7 +104,12 @@ export async function loadPairs(client = publicClient): Promise<TokenWrapperPair
     registryPairs = [];
   }
 
-  const configs = mergePairConfigs(registryPairs, [...officialPairs, ...localPairs]);
+  // Only surface pairs backed by our curated config (official + local).
+  // Registry-only entries (e.g. third-party vault tokens like steakcUSDC)
+  // are dropped so the app shows a clean, known token set.
+  const configs = mergePairConfigs(registryPairs, [...officialPairs, ...localPairs]).filter(
+    (config) => config.source !== "registry"
+  );
   return Promise.all(
     configs.map(async (config) => {
       const [underlying, confidential, rate, isValid] = await Promise.all([
