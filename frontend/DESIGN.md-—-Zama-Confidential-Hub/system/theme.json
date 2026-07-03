@@ -1,0 +1,30 @@
+{
+  "token": {
+    "colorPrimary": "#ffd208",
+    "colorSuccess": "#46c07a",
+    "colorWarning": "#e6c884",
+    "colorError": "#d45757",
+    "colorInfo": "#ffd208",
+    "colorTextBase": "#f4f4f1",
+    "colorBgBase": "#000000",
+    "fontFamily": "Inter, system-ui, -apple-system, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif",
+    "fontFamilyCode": "'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace",
+    "fontSize": 15,
+    "borderRadius": 8,
+    "sizeUnit": 4,
+    "sizeStep": 4,
+    "controlHeight": 44,
+    "lineWidth": 1,
+    "motionUnit": 0.1,
+    "motionBase": 0,
+    "wireframe": false,
+    "motion": true,
+    "colorLink": "#ffd208",
+    "colorBgContainer": "#141414",
+    "colorBgElevated": "#1b1b1b",
+    "colorBorder": "#2b2b2b",
+    "colorBorderSecondary": "#232323"
+  },
+  "algorithm": "darkAlgorithm",
+  "_provenance": "Base colors, status hues, radius and control height re-measured from the app's src/styles.css (dark shell #000, text #f4f4f1, primary #ffd208, positive #46c07a, danger #d45757). Previous file carried antd default status colors and inverted light base — corrected in AI Optimize pass."
+}

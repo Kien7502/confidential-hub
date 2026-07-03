@@ -1,0 +1,71 @@
+/* =============================================================
+   Zama Confidential Hub — design tokens (drop-in)
+   v1.1.0 · re-measured from src/styles.css + config
+   Import this ABOVE src/styles.css, then map the hardcoded hex
+   in styles.css onto these variables. See apply-guide.md.
+   ============================================================= */
+
+:root {
+  /* ---- Surfaces (elevation steps) ---- */
+  --z-canvas:        #000000;  /* app + sidebar background */
+  --z-surface:       #0d0d0d;  /* inputs, dropdowns, inner wells */
+  --z-surface-1:     #0b0b0b;  /* registered "Surface 1" */
+  --z-panel:         #141414;  /* cards, panels */
+  --z-modal:         #1b1b1b;  /* modals, elevated menus, pair cards */
+  --z-hover:         #202020;  /* hover fills on rows / menu items */
+  --z-raise:         #151515;  /* default button face */
+
+  /* ---- Borders (prominence steps) ---- */
+  --z-border-subtle: #232323;  /* row dividers, sidebar rule */
+  --z-border:        #2b2b2b;  /* default control + panel borders */
+  --z-border-card:   #3a3a3a;  /* raised cards, dropdown menus, avatars */
+  --z-border-hover:  #6f6f6f;  /* input/control border on hover */
+
+  /* ---- Text ---- */
+  --z-fg:            #f4f4f1;  /* headings, primary text */
+  --z-body:          #b9b9b2;  /* body copy, secondary lines */
+  --z-muted:         #9c9c95;  /* labels, metadata, captions */
+  --z-faint:         #7d7d76;  /* addresses, disabled hints */
+
+  /* ---- Accent (one hue only) ---- */
+  --z-accent:        #ffd208;  /* primary actions, active state, emphasis */
+  --z-accent-hover:  #ffdb35;
+  --z-on-accent:     #050505;  /* text/icons on yellow fills */
+  --z-accent-tint:   rgba(255, 210, 8, 0.08);  /* active step / selected chip wash */
+  --z-accent-tint-2: rgba(255, 210, 8, 0.10);
+  --z-accent-border: #806b24;  /* border on accent-tinted panels */
+  --z-accent-disabled-bg: #262010;
+  --z-accent-disabled-fg: #8a8367;
+
+  /* ---- Status (state only — not a second brand hue) ---- */
+  --z-positive:        #46c07a;
+  --z-positive-border: #315f44;
+  --z-warn:            #e6c884;
+  --z-warn-border:     #6f5530;
+  --z-danger:          #d45757;
+  --z-danger-fg:       #ff8f66;
+
+  /* ---- Radius ---- */
+  --z-r-input: 6px;
+  --z-r-card:  12px;
+  --z-r-card-lg: 16px;
+  --z-r-pill:  999px;
+  --z-r-base:  8px;   /* registered base token */
+
+  /* ---- Spacing rhythm (4px unit) ---- */
+  --z-sp-1: 4px;
+  --z-sp-2: 8px;
+  --z-sp-3: 12px;
+  --z-sp-4: 16px;
+  --z-sp-5: 20px;
+  --z-sp-6: 24px;
+
+  /* ---- Type ---- */
+  --z-font: "Inter", system-ui, -apple-system, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  --z-mono: "SFMono-Regular", "SF Mono", Consolas, "Liberation Mono", Menlo, monospace;
+
+  /* ---- Elevation ---- */
+  --z-shadow-card:  0 18px 50px rgba(0, 0, 0, 0.28);
+  --z-shadow-pop:   0 18px 50px rgba(0, 0, 0, 0.5);
+  --z-shadow-modal: 0 28px 80px rgba(0, 0, 0, 0.58);
+}

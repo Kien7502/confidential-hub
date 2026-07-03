@@ -1,0 +1,22 @@
+{
+  "$schema": "https://open-design.ai/schemas/plugin.v1.json",
+  "specVersion": "1.0.0",
+  "name": "zama-confidential-hub-design-system-mr4ud1ds",
+  "title": "Zama Confidential Hub — Design System",
+  "version": "0.1.0",
+  "description": "Phiên bản: **1.1.0** · Nguồn: <https://zama-ctoken-shield.vercel.app/>",
+  "od": {
+    "kind": "skill",
+    "taskKind": "new-generation",
+    "context": {
+      "skills": [
+        {
+          "path": "./SKILL.md"
+        }
+      ]
+    },
+    "capabilities": [
+      "prompt:inject"
+    ]
+  }
+}

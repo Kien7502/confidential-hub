@@ -1,0 +1,108 @@
+{
+  "name": "DESIGN.md — Zama Confidential Hub",
+  "version": "1.1.0",
+  "tagline": "A confidential-token wallet and DeFi tool on Zama's FHE / ERC-7984 stack.",
+  "description": "Design system for the Zama cToken app: a confidential-token wallet + DeFi tool on Zama's FHE / ERC-7984 stack (Sepolia testnet). Users shield public ERC-20 tokens into confidential counterparts, unshield back, send confidentially, decrypt encrypted balances, and mint from faucets — over a browsable registry of official confidential wrappers plus custom pairs.\n\nProduct surface: a left-sidebar app shell (Dashboard, Faucet, Shield/Unshield, Send, Activity). Actions live in centered cards/forms, never a marketing landing page. Core screens are a wallet dashboard (total balance, asset list with price/balance/value, per-asset detail modal) and a swap-style Shield/Unshield card (\"You shield\" → \"You receive\").\n\nVisual identity: dark, near-black shell with a single bold Zama-yellow accent. Confidential tokens carry a shield badge; encrypted balances that aren't decrypted yet show as \"****\", never a fake zero. High-contrast, fintech-precise, no decorative fluff.",
+  "sourceUrl": "https://zama-ctoken-shield.vercel.app/",
+  "provenance": "Colors, type, radius and layout re-measured from the app's own src/styles.css and config (officialPairs.ts, prices.ts, tokenIcons.ts) in the AI Optimize pass. Extended surface/border/status roles and OKLCH values added; base foreground/background roles corrected (the app is a dark shell: canvas #000000, text #f4f4f1). Values marked 'inferred' were not directly measured.",
+  "logo": {
+    "primary": "assets/zama-brand-icon.png",
+    "alternates": [
+      "logos/apple-touch-icon.png",
+      "logos/favicon-1.png",
+      "logos/favicon-2.ico"
+    ],
+    "notes": "Real Zama brand icon shipped in the app's /public. Rendered in the sidebar on a #ffd208 rounded tile. No wordmark supplied by source."
+  },
+  "colors": [
+    { "role": "bg", "hex": "#000000", "oklch": "oklch(0% 0 0)", "name": "Canvas", "usage": "page/app background, sidebar" },
+    { "role": "surface", "hex": "#0d0d0d", "oklch": "oklch(14.5% 0 0)", "name": "Input surface", "usage": "inputs, dropdowns, inner wells" },
+    { "role": "surface-2", "hex": "#141414", "oklch": "oklch(17.8% 0 0)", "name": "Panel", "usage": "cards and panels" },
+    { "role": "surface-3", "hex": "#1b1b1b", "oklch": "oklch(21.3% 0 0)", "name": "Modal", "usage": "modals, elevated menus" },
+    { "role": "hover", "hex": "#202020", "oklch": "oklch(23.5% 0 0)", "name": "Hover", "usage": "hover fills on rows/menu items" },
+    { "role": "border-subtle", "hex": "#232323", "oklch": "oklch(25.3% 0 0)", "name": "Border subtle", "usage": "sidebar rule, table row dividers" },
+    { "role": "border", "hex": "#2b2b2b", "oklch": "oklch(28.6% 0 0)", "name": "Border default", "usage": "default control and panel borders" },
+    { "role": "border-card", "hex": "#3a3a3a", "oklch": "oklch(34.9% 0 0)", "name": "Border card", "usage": "raised cards, dropdown menus, avatars" },
+    { "role": "border-hover", "hex": "#6f6f6f", "oklch": "oklch(53.6% 0 0)", "name": "Border hover", "usage": "input/control border on hover" },
+    { "role": "fg", "hex": "#f4f4f1", "oklch": "oklch(96.2% 0.002 106)", "name": "Text primary", "usage": "headings and primary text" },
+    { "role": "fg-body", "hex": "#b9b9b2", "oklch": "oklch(76.8% 0.004 106)", "name": "Text body", "usage": "body copy, secondary lines" },
+    { "role": "fg-muted", "hex": "#9c9c95", "oklch": "oklch(66.2% 0.005 106)", "name": "Text muted", "usage": "labels, metadata, captions" },
+    { "role": "accent", "hex": "#ffd208", "oklch": "oklch(86.9% 0.174 96.3)", "name": "Zama yellow", "usage": "primary actions, active state, emphasis — one accent only" },
+    { "role": "on-accent", "hex": "#050505", "oklch": "oklch(3.6% 0 0)", "name": "On-accent text", "usage": "text/icons on yellow fills" },
+    { "role": "accent-tint", "hex": "rgba(255,210,8,0.08)", "oklch": "", "name": "Accent tint", "usage": "active step / selected chip wash (8–10% alpha)" },
+    { "role": "accent-border", "hex": "#806b24", "oklch": "oklch(50.1% 0.077 92)", "name": "Accent border", "usage": "border on active/accent-tinted panels" },
+    { "role": "positive", "hex": "#46c07a", "oklch": "oklch(72.1% 0.148 156)", "name": "Positive", "usage": "gains, success step, connected status" },
+    { "role": "positive-border", "hex": "#315f44", "oklch": "oklch(43.2% 0.072 156)", "name": "Positive border", "usage": "success pill/step border" },
+    { "role": "warn-border", "hex": "#6f5530", "oklch": "oklch(43.4% 0.06 74)", "name": "Warn border", "usage": "wrong-network pill border" },
+    { "role": "danger", "hex": "#d45757", "oklch": "oklch(62.5% 0.166 22)", "name": "Danger", "usage": "error step index, destructive text" },
+    { "role": "danger-fg", "hex": "#ff8f66", "oklch": "oklch(75.4% 0.153 43)", "name": "Danger text", "usage": "inline error copy, disconnect action" }
+  ],
+  "typography": {
+    "display": {
+      "family": "Inter",
+      "fallbacks": ["system-ui", "-apple-system", "Segoe UI", "Helvetica Neue", "Arial", "sans-serif"],
+      "weights": [400, 600, 700],
+      "notes": "Loaded from rsms.me/inter. Headings 700; H1 ~30px."
+    },
+    "body": {
+      "family": "Inter",
+      "fallbacks": ["system-ui", "-apple-system", "Segoe UI", "Helvetica Neue", "Arial", "sans-serif"],
+      "weights": [400, 600, 700],
+      "notes": "Base 15px / 1.5. Single family display+body is intentional (tech/utility posture)."
+    },
+    "mono": {
+      "family": "SFMono-Regular",
+      "fallbacks": ["SF Mono", "Consolas", "Liberation Mono", "Menlo", "monospace"],
+      "weights": [400, 700],
+      "notes": "Addresses, tx hashes, token amounts and the encrypted **** mask."
+    },
+    "scale": {
+      "h1": "30px", "h2": "16-18px", "balance-hero": "40px", "flow-amount": "44px", "body": "15px", "small": "13px", "caption": "12px", "micro": "11px"
+    }
+  },
+  "voice": {
+    "adjectives": ["direct", "expert", "calm", "precise", "trustworthy"],
+    "tone": "Direct, expert, calm. Action-first. States the current action plainly; never overhypes, never leaks. Trust and privacy are the through-line.",
+    "messagingPillars": [
+      "Confidential by default — shield public ERC-20 into ERC-7984 counterparts; encrypted balances stay encrypted until you decrypt.",
+      "Verb-first control — every action is a plain verb: Shield, Unshield, Send, Decrypt, Mint.",
+      "Testnet-honest — Sepolia only, mock tokens, real flows; blocking reasons are always stated on the control itself."
+    ],
+    "vocabulary": {
+      "use": ["Shield", "Unshield", "Send", "Decrypt", "Confidential", "Encrypted amount", "Available to shield", "You shield", "You receive", "Permit"],
+      "avoid": ["hype superlatives (fastest/best/revolutionary)", "\"private\" as a vague promise", "fake zero for an undecrypted balance", "emoji in product UI", "marketing CTAs (\"Get started free\")"]
+    }
+  },
+  "imagery": {
+    "style": "Iconographic, not photographic. Monoline stroke icons (Lucide-style, ~2px) for nav and actions; filled shield glyph for the confidential badge.",
+    "subjects": ["token logos (circular)", "shield badge", "wallet/network status"],
+    "treatment": "Token logos render as circular avatars on #0d0d0d with a 1px #3a3a3a ring; confidential variants add a shield badge on its own dark disc so it stays legible over any logo color.",
+    "avoid": ["stock photography", "3D crypto-coin renders", "gradient mesh backgrounds", "hand-drawn illustration"],
+    "samples": ["assets/tokens/usdc.png", "assets/tokens/usdt.png", "assets/tokens/weth.png", "assets/tokens/zama.png", "assets/tokens/xaut.png"]
+  },
+  "layout": {
+    "radius": "6px inputs · 12–16px cards · 999px pills & avatars (base token 8px)",
+    "borderWeight": "1px",
+    "spacing": "4 / 8 / 12 / 16 / 20 / 24 rhythm on a 4px unit",
+    "postureRules": [
+      "Fixed left sidebar (~248px): brand mark top, primary nav, wallet control pinned to the bottom.",
+      "Actions live in centered cards/forms (max ~560px), never a full-bleed marketing layout.",
+      "One accent only (#ffd208), used sparingly — primary button, active nav, active step; never a large wash.",
+      "Every action CTA is disabled with its blocking reason in the label until wallet is connected on Sepolia.",
+      "Encrypted balances render **** in mono; decrypt reveals via a permit-then-decrypt step.",
+      "Dark, high-contrast (WCAG AA); visible focus rings; aria labels on icon-only buttons; 44px min hit targets."
+    ]
+  },
+  "tokenRegistry": {
+    "note": "Official confidential pairs shipped with the app; logos are real files in assets/tokens/.",
+    "pairs": [
+      { "symbol": "USDCMock", "confidential": "cUSDCMock", "icon": "assets/tokens/usdc.png", "priceRef": "usd-coin", "decimals": 6 },
+      { "symbol": "USDTMock", "confidential": "cUSDTMock", "icon": "assets/tokens/usdt.png", "priceRef": "tether", "decimals": 6 },
+      { "symbol": "WETHMock", "confidential": "cWETHMock", "icon": "assets/tokens/weth.png", "priceRef": "weth", "decimals": 18 },
+      { "symbol": "ZAMAMock", "confidential": "cZAMAMock", "icon": "assets/tokens/zama.png", "priceRef": "zama", "decimals": 18 },
+      { "symbol": "XAUtMock", "confidential": "cXAUtMock", "icon": "assets/tokens/xaut.png", "priceRef": "tether-gold", "decimals": 6 },
+      { "symbol": "BRONMock", "confidential": "cBRONMock", "icon": null, "priceRef": null, "decimals": 18 },
+      { "symbol": "tGBPMock", "confidential": "ctGBPMock", "icon": null, "priceRef": null, "decimals": 18 }
+    ]
+  }
+}

@@ -187,3 +187,60 @@
 - Faucet/create transaction cancellation được format thành Transaction was cancelled và faucet hiển thị lỗi inline.
 - Chạy npm test: pass 4 files / 16 tests.
 - Chạy npm run build: pass; còn warning chunk/PURE annotation từ Privy/Zama dependencies.
+
+## Hoan tat sua cache decrypt balance
+- Dashboard cToken row doc handle onchain hien tai, so voi decrypt cache theo chain/wallet/token/handle; neu handle chua doi thi hien thi balance da decrypt va khoa nut Decrypted de khong bat ky lai.
+
+## Hoan tat cap nhat app icon Zama
+- Kiem tra asset icon/logo tren `https://app.zama.org/`; web render thay `logo-black`/`logo-white` nhung local download bi Vercel Security Checkpoint.
+- Dung fallback GitHub tu `zama-ai/dapps` cho favicon Zama ERC7984 example: chu Z den tren nen vang.
+- Them `favicon.png`, `apple-touch-icon.png`, `icon-192.png`, `icon-512.png` va `site.webmanifest`; `index.html` tro sang PNG icon moi.
+- Tai token icons local cho USDC, USDT, WETH, XAUt tu TrustWallet GitHub assets va dung Zama fallback icon cho ZAMA/cZAMA; resolver tro ve `/tokens/*.png` de khong phu thuoc remote runtime.
+- Chay npm test: pass 4 files / 16 tests.
+- Chay npm run build: pass; con warning chunk/PURE annotation tu Privy/Zama dependencies.
+
+## Hoan tat cap nhat Shield stepper/result
+- Shield flow hien thi tien trinh 1/2 Allowance va 2/2 Shield ben duoi nut submit, gom waiting/active/done/skipped/error.
+- Shield flow doi receipt success cho approve va wrap truoc khi danh dau hoan tat.
+- Sau khi shield thanh cong, hien panel ket qua voi tab Result/On-chain, so tien shield/receive va link Sepolia Etherscan cho approve/wrap transaction.
+- Activity transaction link dung chung helper Sepolia Etherscan voi panel ket qua.
+- Chay npm test: pass 4 files / 16 tests.
+- Chay npm run build: pass; con warning chunk/PURE annotation tu Privy/Zama dependencies.
+- Khoi dong dev server tai `http://127.0.0.1:5174/`; HTTP 200, log Vite khong co stderr.
+
+## Hoan tat don gian hoa Add/Create token form
+- Add token bo truong Label va Icon URL; form chi con category, address, ket qua doc metadata va token list.
+- Create ERC20 bo truong Icon URL va decimals; decimals co dinh mac dinh la 18.
+- Initial mint dung placeholder xam `1000000`; neu user de trong thi dung mac dinh nay, neu nhap so moi thi deploy theo so user nhap.
+- Chay npm test: pass 4 files / 16 tests.
+- Chay npm run build: pass; con warning chunk/PURE annotation tu Privy/Zama dependencies.
+
+## Hoan tat doi Dashboard sang Wallet screen
+- Dashboard doi sang layout wallet theo wireframe: total balance card, CTA Shield, header Asset/Price/Balance/Value va danh sach asset clickable.
+- Asset row doc public ERC20 balance on-chain, doc confidential handle va dung cache decrypt neu co de tinh hien thi balance/value; khong tu bat wallet prompt.
+- Them popup Asset Detail voi price/total balance, row Confidential co UNSHIELD, row Standard co SHIELD va nut Send.
+- Them Show empty assets toggle va nut Add token trong wallet list.
+- Chay npm test: pass 4 files / 16 tests.
+- Chay npm run build: pass; con warning chunk/PURE annotation tu Privy/Zama dependencies.
+
+## Hoan tat thay gia co dinh bang live token price
+- Kiem tra `https://app.zama.org/` nhung curl bi Vercel Security Checkpoint nen khong lay duoc bundle public de doi chieu truc tiep.
+- Them loader gia USD tu CoinGecko simple price API cho USDC, USDT, WETH, XAUt va ZAMA; cToken mock duoc normalize ve underlying symbol.
+- Dashboard price/value/total balance/available to shield dung live price query cache 60 giay thay vi hang so `$0.999`.
+- Token khong co price mapping hien `-` o cot price va khong bi tinh sai vao USD total; empty asset dung raw token balance de an/hien.
+- Chay npm test: pass 5 files / 18 tests.
+- Chay npm run build: pass; con warning chunk/PURE annotation tu Privy/Zama dependencies.
+
+## Hoan tat sua logic empty asset
+- Wallet asset list chi dua token vao Show empty assets khi balance da doc xong va chac chan public balance bang 0, confidential handle zero/khong co.
+- Confidential token co non-zero handle nhung chua decrypt van hien trong danh sach chinh, tranh an nham balance dang ma hoa.
+- Neu public/confidential balance chua doc duoc thi giu asset visible thay vi coi la empty.
+- Chay npm test: pass 5 files / 18 tests.
+- Chay npm run build: pass; con warning chunk/PURE annotation tu Privy/Zama dependencies.
+
+## Hoan tat dua anh Zama ve local
+- Kiem tra `https://app.zama.org/` thay co logo asset Next static, nhung tai truc tiep bi 429/Vercel Security Checkpoint nen khong luu file HTML gia dang SVG vao app.
+- Dung fallback official GitHub `zama-ai/dapps` de lay `packages/erc7984example/public/favicon.png` va luu thanh `frontend/public/zama-brand-icon.png`.
+- Sidebar brand mark dung anh local `/zama-brand-icon.png`; da xoa clone tam sau khi copy asset.
+- Chay npm test: pass 5 files / 18 tests.
+- Chay npm run build: pass; con warning chunk/PURE annotation tu Privy/Zama dependencies.

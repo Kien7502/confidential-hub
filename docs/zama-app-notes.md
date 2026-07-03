@@ -16,6 +16,7 @@ Nguồn:
 - `curl.exe` và `Invoke-WebRequest` từ local bị Vercel Security Checkpoint, chỉ trả về trang xác minh trình duyệt.
 - Web browser fetch lấy được HTML render của app, nên dữ liệu dưới đây được rút từ nội dung render public.
 - Một số phần phụ thuộc wallet hoặc môi trường SDK chỉ hiện `Initializing` hoặc yêu cầu `Connect wallet`.
+- Asset logo/icon trên `app.zama.org` có thể thấy trong render Next static, nhưng tải trực tiếp bị chặn; khi cần dùng local app nên lấy fallback từ official GitHub Zama thay vì giữ HTML checkpoint.
 
 ## App shell
 
