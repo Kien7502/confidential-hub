@@ -6,6 +6,7 @@ describe("token icon resolver", () => {
   it("normalizes supported icon URL schemes", () => {
     expect(normalizeIconUrl("ipfs://cid/logo.png")).toBe("https://ipfs.io/ipfs/cid/logo.png");
     expect(normalizeIconUrl("https://example.com/logo.png")).toBe("https://example.com/logo.png");
+    expect(normalizeIconUrl("/tokens/usdc.png")).toBe("/tokens/usdc.png");
   });
 
   it("rejects unsupported icon URL schemes", () => {
@@ -30,7 +31,7 @@ describe("token icon resolver", () => {
     const resolved = resolveTokenIcon({ address: "0x9b5Cd13b8eFbB58Dc25A05CF411D8056058aDFfF" });
 
     expect(resolved.source).toBe("local");
-    expect(resolved.url).toContain("trustwallet");
+    expect(resolved.url).toBe("/tokens/usdc.png");
   });
 
   it("resolves token-list entries only for the active chain", () => {

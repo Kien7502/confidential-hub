@@ -8,8 +8,8 @@ export const officialPairs: LocalPairConfig[] = [
     source: "official",
     underlyingAddress: "0x9b5Cd13b8eFbB58Dc25A05CF411D8056058aDFfF",
     confidentialAddress: "0x7c5BF43B851c1dff1a4feE8dB225b87f2C223639",
-    underlying: { name: "USDC Mock", symbol: "USDCMock", decimals: 6 },
-    confidential: { name: "Confidential USDC Mock", symbol: "cUSDCMock", decimals: 6 },
+    underlying: { name: "USDC Mock", symbol: "USDCMock", decimals: 6, iconUrl: "/tokens/usdc.png" },
+    confidential: { name: "Confidential USDC Mock", symbol: "cUSDCMock", decimals: 6, iconUrl: "/tokens/usdc.png" },
     supportsFaucet: true
   },
   {
@@ -17,8 +17,8 @@ export const officialPairs: LocalPairConfig[] = [
     source: "official",
     underlyingAddress: "0xa7dA08FafDC9097Cc0E7D4f113A61e31d7e8e9b0",
     confidentialAddress: "0x4E7B06D78965594eB5EF5414c357ca21E1554491",
-    underlying: { name: "USDT Mock", symbol: "USDTMock", decimals: 6 },
-    confidential: { name: "Confidential USDT Mock", symbol: "cUSDTMock", decimals: 6 },
+    underlying: { name: "USDT Mock", symbol: "USDTMock", decimals: 6, iconUrl: "/tokens/usdt.png" },
+    confidential: { name: "Confidential USDT Mock", symbol: "cUSDTMock", decimals: 6, iconUrl: "/tokens/usdt.png" },
     supportsFaucet: true
   },
   {
@@ -26,8 +26,8 @@ export const officialPairs: LocalPairConfig[] = [
     source: "official",
     underlyingAddress: "0xff54739b16576FA5402F211D0b938469Ab9A5f3F",
     confidentialAddress: "0x46208622DA27d91db4f0393733C8BA082ed83158",
-    underlying: { name: "WETH Mock", symbol: "WETHMock", decimals: 18 },
-    confidential: { name: "Confidential WETH Mock", symbol: "cWETHMock", decimals: 6 },
+    underlying: { name: "WETH Mock", symbol: "WETHMock", decimals: 18, iconUrl: "/tokens/weth.png" },
+    confidential: { name: "Confidential WETH Mock", symbol: "cWETHMock", decimals: 6, iconUrl: "/tokens/weth.png" },
     supportsFaucet: true
   },
   {
@@ -44,8 +44,8 @@ export const officialPairs: LocalPairConfig[] = [
     source: "official",
     underlyingAddress: "0x75355a85c6FB9df5f0C80FF54e8747EEe9a0BF57",
     confidentialAddress: "0xf2D628d2598aF4eAF94CB76a437Ff86CA78FfbFB",
-    underlying: { name: "ZAMA Mock", symbol: "ZAMAMock", decimals: 18 },
-    confidential: { name: "Confidential ZAMA Mock", symbol: "cZAMAMock", decimals: 6 },
+    underlying: { name: "ZAMA Mock", symbol: "ZAMAMock", decimals: 18, iconUrl: "/tokens/zama.png" },
+    confidential: { name: "Confidential ZAMA Mock", symbol: "cZAMAMock", decimals: 6, iconUrl: "/tokens/zama.png" },
     supportsFaucet: true
   },
   {
@@ -62,8 +62,8 @@ export const officialPairs: LocalPairConfig[] = [
     source: "official",
     underlyingAddress: "0x24377AE4AA0C45ecEe71225007f17c5D423dd940",
     confidentialAddress: "0xe4FcF848739845BC81Dee1d5352cf3844F0a60C7",
-    underlying: { name: "XAUt Mock", symbol: "XAUtMock", decimals: 6 },
-    confidential: { name: "Confidential XAUt Mock", symbol: "cXAUtMock", decimals: 6 },
+    underlying: { name: "XAUt Mock", symbol: "XAUtMock", decimals: 6, iconUrl: "/tokens/xaut.png" },
+    confidential: { name: "Confidential XAUt Mock", symbol: "cXAUtMock", decimals: 6, iconUrl: "/tokens/xaut.png" },
     supportsFaucet: true
   },
   {

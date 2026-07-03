@@ -18,10 +18,16 @@ export type TokenListEntry = {
 const IPFS_GATEWAY = "https://ipfs.io/ipfs/";
 
 const officialIconByAddress: Record<string, string> = {
-  "0x9b5cd13b8efbb58dc25a05cf411d8056058adfff": "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48/logo.png",
-  "0xa7da08fafdc9097cc0e7d4f113a61e31d7e8e9b0": "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xdAC17F958D2ee523a2206206994597C13D831ec7/logo.png",
-  "0xff54739b16576fa5402f211d0b938469ab9a5f3f": "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2/logo.png",
-  "0x24377ae4aa0c45ecee71225007f17c5d423dd940": "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0x68749665FF8D2d112Fa859AA293F07A622782F38/logo.png"
+  "0x9b5cd13b8efbb58dc25a05cf411d8056058adfff": "/tokens/usdc.png",
+  "0x7c5bf43b851c1dff1a4fee8db225b87f2c223639": "/tokens/usdc.png",
+  "0xa7da08fafdc9097cc0e7d4f113a61e31d7e8e9b0": "/tokens/usdt.png",
+  "0x4e7b06d78965594eb5ef5414c357ca21e1554491": "/tokens/usdt.png",
+  "0xff54739b16576fa5402f211d0b938469ab9a5f3f": "/tokens/weth.png",
+  "0x46208622da27d91db4f0393733c8ba082ed83158": "/tokens/weth.png",
+  "0x75355a85c6fb9df5f0c80ff54e8747eee9a0bf57": "/tokens/zama.png",
+  "0xf2d628d2598af4eaf94cb76a437ff86ca78ffbfb": "/tokens/zama.png",
+  "0x24377ae4aa0c45ecee71225007f17c5d423dd940": "/tokens/xaut.png",
+  "0xe4fcf848739845bc81dee1d5352cf3844f0a60c7": "/tokens/xaut.png"
 };
 
 export function normalizeIconUrl(url?: string): string | undefined {
@@ -29,6 +35,7 @@ export function normalizeIconUrl(url?: string): string | undefined {
   if (!trimmed) return undefined;
   if (trimmed.startsWith("ipfs://")) return `${IPFS_GATEWAY}${trimmed.slice("ipfs://".length)}`;
   if (trimmed.startsWith("https://")) return trimmed;
+  if (trimmed.startsWith("/")) return trimmed;
   return undefined;
 }
 
@@ -55,4 +62,3 @@ export function iconForConfidentialToken(confidential: Pick<TokenMetadata, "addr
   if (own.url) return own;
   return underlying ? resolveTokenIcon(underlying) : own;
 }
-
