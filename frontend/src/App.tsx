@@ -220,7 +220,7 @@ export default function App({ privyConfigured }: { privyConfigured: boolean }) {
   }, [activeWallet?.address, activeWallet?.chainId]);
 
   useEffect(() => {
-    setActivity(readActivity(account));
+    setActivity(readActivity(account).filter((item) => item.type !== "decrypt"));
     setPendingUnwraps(readPendingUnwraps(account));
     setAddedTokens(readAddedTokens(account));
   }, [account]);
@@ -456,12 +456,14 @@ function Dashboard({
   const [createRequest, setCreateRequest] = useState<CreateModalRequest | null>(null);
   const [selectedRowId, setSelectedRowId] = useState<string>();
   const [showEmptyAssets, setShowEmptyAssets] = useState(false);
+  const [assetTab, setAssetTab] = useState<"custom" | "official">("custom");
   const [assetSnapshots, setAssetSnapshots] = useState<Record<string, WalletAssetSnapshot>>({});
   const official = pairs.filter((pair) => pair.source === "official");
   const registryCustom = pairs.filter((pair) => pair.source !== "official");
   const customRows = [...buildOfficialRows(registryCustom), ...buildUserRows(addedTokens, addedPairs, standaloneTokens)];
   const officialRows = buildOfficialRows(official);
   const walletRows = [...customRows, ...officialRows].filter((row) => row.underlying || row.confidential);
+  const activeRows = (assetTab === "custom" ? customRows : officialRows).filter((row) => row.underlying || row.confidential);
   const priceSymbols = Array.from(new Set(walletRows.map((row) => priceSymbolForAsset(row)).filter(Boolean) as string[]));
   const pricesQuery = useQuery({
     queryKey: ["token-prices", priceSymbols.join(",")],
@@ -470,12 +472,12 @@ function Dashboard({
     staleTime: 60_000
   });
   const prices = pricesQuery.data ?? {};
-  const emptyRows = walletRows.filter((row) => assetIsEmpty(row, assetSnapshots[row.id]));
-  const visibleRows = showEmptyAssets ? walletRows : walletRows.filter((row) => !assetIsEmpty(row, assetSnapshots[row.id]));
+  const emptyRows = activeRows.filter((row) => assetIsEmpty(row, assetSnapshots[row.id]));
+  const visibleRows = showEmptyAssets ? activeRows : activeRows.filter((row) => !assetIsEmpty(row, assetSnapshots[row.id]));
   const selectedRow = walletRows.find((row) => row.id === selectedRowId);
-  const totalValue = walletRows.reduce((sum, row) => sum + assetValue(row, assetSnapshots[row.id], prices), 0);
-  const shieldableValue = walletRows.reduce((sum, row) => sum + publicAssetValue(row, assetSnapshots[row.id], prices), 0);
-  const displayRows = visibleRows.length > 0 ? visibleRows : walletRows.slice(0, 1);
+  const totalValue = walletRows.reduce((sum, row) => sum + (assetValue(row, assetSnapshots[row.id], prices) ?? 0), 0);
+  const shieldableValue = walletRows.reduce((sum, row) => sum + (publicAssetValue(row, assetSnapshots[row.id], prices) ?? 0), 0);
+  const displayRows = visibleRows.length > 0 ? visibleRows : activeRows.slice(0, 1);
   const shieldedCount = walletRows.filter((row) => row.confidential).length;
   function updateSnapshot(rowId: string, snapshot: WalletAssetSnapshot) {
     setAssetSnapshots((current) => {
@@ -517,6 +519,10 @@ function Dashboard({
         <div className="section-title">
           <h2>Assets</h2>
           <span className="hint">Prices via CoinGecko</span>
+        </div>
+        <div className="asset-tabs" role="tablist" aria-label="Asset groups">
+          <button type="button" role="tab" aria-selected={assetTab === "custom"} className={assetTab === "custom" ? "active" : ""} onClick={() => setAssetTab("custom")}>Your custom asset</button>
+          <button type="button" role="tab" aria-selected={assetTab === "official"} className={assetTab === "official" ? "active" : ""} onClick={() => setAssetTab("official")}>Official token</button>
         </div>
         <div className="asset-table">
           <div className="asset-head">
@@ -688,11 +694,9 @@ function WalletAssetRow({
       next[cacheKey(SEPOLIA_CHAIN_ID, account, confidential.address, handle)] = { value, lastDecryptedAt: Date.now() };
       writeDecryptCache(next);
       setDecryptCacheVersion((version) => version + 1);
-      pushActivity({ type: "decrypt", status: "success", title: `Decrypted ${confidential.symbol} balance`, detail: `${formatTokenAmount(BigInt(value), confidential.decimals)} ${confidential.symbol}` });
     } catch (error) {
       const detail = error instanceof Error ? error.message : String(error);
       setDecryptError(detail);
-      pushActivity({ type: "decrypt", status: "failed", title: `Decrypt ${confidential.symbol} failed`, detail });
     } finally {
       setDecryptPhase("idle");
     }
@@ -713,7 +717,7 @@ function WalletAssetRow({
         {confidential ? (
           <span className="conf">
             <Lock size={11} />
-            {confidentialDisplay === "encrypted" ? <span className="encrypted-mask">****</span> : confidentialDisplay}
+            {confidentialDisplay === "encrypted" && confidential ? <span className="encrypted-mask">**** {confidential.symbol}</span> : confidentialDisplay}
             {handle && !isZeroConfidentialHandle(handle) && confidentialDisplay === "encrypted" ? (
               <span
                 role="button"
@@ -799,11 +803,9 @@ function AssetDetailModal({
       const next = readDecryptCache();
       next[cacheKey(SEPOLIA_CHAIN_ID, account, confidential.address, handle)] = { value, lastDecryptedAt: Date.now() };
       writeDecryptCache(next);
-      pushActivity({ type: "decrypt", status: "success", title: `Decrypted ${confidential.symbol} balance`, detail: `${formatTokenAmount(BigInt(value), confidential.decimals)} ${confidential.symbol}` });
     } catch (error) {
       const detail = error instanceof Error ? error.message : String(error);
       setDecryptError(detail);
-      pushActivity({ type: "decrypt", status: "failed", title: `Decrypt ${confidential.symbol} failed`, detail });
     } finally {
       setDecryptPhase("idle");
     }
@@ -851,7 +853,7 @@ function AssetDetailModal({
             <div className="balance-detail">
               <div className="left">
                 <span className="lbl"><Lock size={12} />Confidential · {row.confidential.symbol}</span>
-                <span className={confidentialBalance === "encrypted" ? "val masked" : "val"}>{confidentialBalance === "encrypted" ? "****" : confidentialBalance}</span>
+                <span className={confidentialBalance === "encrypted" ? "val masked" : "val"}>{confidentialBalance === "encrypted" && row.confidential ? `**** ${row.confidential.symbol}` : confidentialBalance}</span>
                 <span className="lbl">{formatFiat(confidentialAssetValue(row, snapshot, prices))}</span>
               </div>
               <div className="right">
@@ -904,19 +906,22 @@ function unitsToNumber(value: bigint | undefined, decimals: number) {
 }
 
 function publicAssetValue(row: DashboardRow, snapshot: WalletAssetSnapshot | undefined, prices: TokenPriceMap) {
-  if (!row.underlying) return 0;
+  if (!row.underlying) return undefined;
   const price = priceForAsset(row, prices);
-  return price ? unitsToNumber(snapshot?.publicBalance, row.underlying.decimals) * price : 0;
+  return price === undefined ? undefined : unitsToNumber(snapshot?.publicBalance, row.underlying.decimals) * price;
 }
 
 function confidentialAssetValue(row: DashboardRow, snapshot: WalletAssetSnapshot | undefined, prices: TokenPriceMap) {
-  if (!row.confidential) return 0;
+  if (!row.confidential) return undefined;
   const price = priceForAsset(row, prices);
-  return price ? unitsToNumber(snapshot?.confidentialValue, row.confidential.decimals) * price : 0;
+  return price === undefined ? undefined : unitsToNumber(snapshot?.confidentialValue, row.confidential.decimals) * price;
 }
 
 function assetValue(row: DashboardRow, snapshot: WalletAssetSnapshot | undefined, prices: TokenPriceMap) {
-  return publicAssetValue(row, snapshot, prices) + confidentialAssetValue(row, snapshot, prices);
+  const publicValue = publicAssetValue(row, snapshot, prices);
+  const confidentialValue = confidentialAssetValue(row, snapshot, prices);
+  if (publicValue === undefined && confidentialValue === undefined) return undefined;
+  return (publicValue ?? 0) + (confidentialValue ?? 0);
 }
 
 function assetIsEmpty(row: DashboardRow, snapshot?: WalletAssetSnapshot) {
@@ -1588,11 +1593,7 @@ function UnifiedWrapPage({
   const shieldSteps = buildShieldSteps({
     phase,
     busy,
-    hasAmount: parsed > 0n,
-    error,
-    result: shieldResult,
-    approvalTxHash,
-    failedStep: shieldFailedStep
+    approvalTxHash
   });
 
   return (
@@ -1643,7 +1644,7 @@ function UnifiedWrapPage({
       <button className="btn primary flow-submit" disabled={disabled} onClick={() => void (mode === "shield" ? submitShield() : submitUnshield())}>
         {submitText}
       </button>
-      {mode === "shield" ? <FlowSteps steps={shieldSteps} /> : null}
+      {mode === "shield" && shieldSteps.length > 0 ? <FlowSteps steps={shieldSteps} /> : null}
       {mode === "shield" && error ? <p className="flow-warning">{error}</p> : null}
       {mode === "shield" && shieldResult ? <ShieldResultPanel result={shieldResult} /> : null}
 
@@ -1678,76 +1679,33 @@ function UnifiedWrapPage({
 function buildShieldSteps({
   phase,
   busy,
-  hasAmount,
-  error,
-  result,
-  approvalTxHash,
-  failedStep
+  approvalTxHash
 }: {
   phase: "idle" | "checking" | "approving" | "wrapping" | "requesting";
   busy: boolean;
-  hasAmount: boolean;
-  error: string;
-  result?: ShieldResult;
   approvalTxHash?: Hex;
-  failedStep?: ShieldStepId;
 }): Array<{ id: ShieldStepId; label: string; detail: string; state: FlowStepState; txHash?: Hex }> {
-  if (result) {
-    return [
-      {
-        id: "allowance",
-        label: "Allowance",
-        detail: result.approvalTxHash ? "Approval confirmed on Sepolia." : "Existing allowance was sufficient.",
-        state: result.approvalTxHash ? "done" : "skipped",
-        txHash: result.approvalTxHash
-      },
-      {
-        id: "wrap",
-        label: "Shield",
-        detail: "Shield transaction confirmed on Sepolia.",
-        state: "done",
-        txHash: result.wrapTxHash
-      }
-    ];
-  }
-
-  if (error && !busy) {
-    return [
-      {
-        id: "allowance",
-        label: "Allowance",
-        detail: failedStep === "allowance" ? error : approvalTxHash ? "Approval confirmed on Sepolia." : "Check ERC20 allowance.",
-        state: failedStep === "allowance" ? "error" : approvalTxHash ? "done" : "waiting",
-        txHash: approvalTxHash
-      },
-      {
-        id: "wrap",
-        label: "Shield",
-        detail: failedStep === "wrap" ? error : "Submit wrapper transaction.",
-        state: failedStep === "wrap" ? "error" : "waiting"
-      }
-    ];
-  }
-
-  const allowanceActive = phase === "checking" || phase === "approving";
-  const wrapActive = phase === "wrapping";
-  return [
-    {
+  if (!busy) return [];
+  const steps: Array<{ id: ShieldStepId; label: string; detail: string; state: FlowStepState; txHash?: Hex }> = [];
+  if (phase === "checking" || phase === "approving" || phase === "wrapping") {
+    steps.push({
       id: "allowance",
       label: "Allowance",
-      detail: phase === "checking" ? "Checking ERC20 allowance." : phase === "approving" ? "Approve wrapper spending in your wallet." : wrapActive ? (approvalTxHash ? "Approval confirmed on Sepolia." : "Existing allowance is sufficient.") : "Check whether approval is needed.",
-      state: allowanceActive ? "active" : wrapActive ? (approvalTxHash ? "done" : "skipped") : "waiting",
+      detail: phase === "checking" ? "Checking ERC20 allowance." : phase === "approving" ? "Approve wrapper spending in your wallet." : approvalTxHash ? "Approval confirmed on Sepolia." : "Existing allowance is sufficient.",
+      state: phase === "wrapping" ? (approvalTxHash ? "done" : "skipped") : "active",
       txHash: approvalTxHash
-    },
-    {
+    });
+  }
+  if (phase === "wrapping") {
+    steps.push({
       id: "wrap",
       label: "Shield",
-      detail: wrapActive ? "Submitting and confirming shield transaction." : hasAmount ? "Wrap ERC20 into confidential token." : "Enter an amount to prepare shielding.",
-      state: wrapActive ? "active" : "waiting"
-    }
-  ];
+      detail: "Submitting and confirming shield transaction.",
+      state: "active"
+    });
+  }
+  return steps;
 }
-
 function FlowSteps({ steps }: { steps: Array<{ id: ShieldStepId; label: string; detail: string; state: FlowStepState; txHash?: Hex }> }) {
   const stepClass = (state: FlowStepState) => (state === "active" ? "active" : state === "done" || state === "skipped" ? "done" : state === "error" ? "error" : "");
   return (
@@ -2048,8 +2006,6 @@ function activityIcon(type: ActivityItem["type"]) {
     case "unwrap-request":
     case "unwrap-finalize":
       return <RefreshCw size={16} />;
-    case "decrypt":
-      return <Eye size={16} />;
     case "faucet":
       return <Banknote size={16} />;
     case "send":
@@ -2095,7 +2051,7 @@ function ActivityPage({ items }: { items: ActivityItem[] }) {
         <div className="empty-state">
           <Activity size={28} />
           <strong>No activity yet</strong>
-          <span>Shield, unshield, decrypt, mint and send actions show up here.</span>
+          <span>Shield, unshield, mint and send actions show up here.</span>
         </div>
       ) : (
         <>

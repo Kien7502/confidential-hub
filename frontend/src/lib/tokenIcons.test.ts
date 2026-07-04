@@ -31,7 +31,7 @@ describe("token icon resolver", () => {
     const resolved = resolveTokenIcon({ address: "0x9b5Cd13b8eFbB58Dc25A05CF411D8056058aDFfF" });
 
     expect(resolved.source).toBe("local");
-    expect(resolved.url).toBe("/tokens/usdc.png");
+    expect(resolved.url).toBe("/tokens-icon/USDC.svg");
   });
 
   it("resolves token-list entries only for the active chain", () => {

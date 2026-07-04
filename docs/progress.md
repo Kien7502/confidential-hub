@@ -244,3 +244,14 @@
 - Sidebar brand mark dung anh local `/zama-brand-icon.png`; da xoa clone tam sau khi copy asset.
 - Chay npm test: pass 5 files / 18 tests.
 - Chay npm run build: pass; con warning chunk/PURE annotation tu Privy/Zama dependencies.
+
+
+## Hoan tat chinh Dashboard/Shield/Activity
+- Dashboard asset list chia lai thanh 2 tab: Your custom asset va Official token; empty toggle tinh theo tab dang xem.
+- Token khong co price hien value la `-` thay vi `$0.00`, con tong portfolio van bo qua token khong co price.
+- Shield progress chi hien khi transaction dang processing; hien Allowance truoc, den khi wrap moi hien them Shield.
+- Activity khong ghi va khong hien lich su decrypt; activity decrypt cu trong localStorage bi loc khoi UI.
+- Balance confidential chua decrypt hien `**** SYMBOL` de van thay cToken symbol.
+- Cap nhat expectation token icon test theo asset local hien tai `/tokens-icon/USDC.svg`.
+- Chay npm run build: pass; con warning chunk/PURE annotation tu Privy/Zama dependencies.
+- Chay npm test: pass 5 files / 18 tests.
