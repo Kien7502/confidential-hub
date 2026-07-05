@@ -1915,7 +1915,7 @@ function FaucetPage({
   }, [faucetPairs.length]);
 
   async function submit() {
-    if (!account || !provider || !pair || !allowed) return;
+    if (locked || !isSepolia || !account || !provider || !pair || !allowed) return;
     setBusy(true);
     setError("");
     try {
@@ -1960,7 +1960,7 @@ function FaucetPage({
           {!allowed && amount ? <span className="err">Enter an amount from 0 to 1,000,000 tokens.</span> : null}
         </div>
         {error ? <p className="warning">{error}</p> : null}
-        <button className="btn primary block" disabled={!pair || !allowed || busy} onClick={() => void submit()}>
+        <button className="btn primary block" disabled={locked || !isSepolia || !pair || !allowed || busy} onClick={() => void submit()}>
           {busy ? "Claiming…" : ctaLabel("Claim", "mint", account, isSepolia)}
         </button>
       </div>
