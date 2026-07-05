@@ -509,7 +509,7 @@ function Dashboard({
           <span className="label">Available to shield</span>
           <div className="amount">{formatFiat(shieldableValue)}</div>
           <p className="meta">Public ERC-20 you can wrap into confidential tokens.</p>
-          <button className="btn primary sm" style={{ width: "max-content" }} disabled={actionLocked || walletRows.length === 0} onClick={() => onNavigateFlow({ page: "shield" })}>
+          <button className="btn primary sm fit-content" disabled={actionLocked || walletRows.length === 0} onClick={() => onNavigateFlow({ page: "shield" })}>
             {ctaLabel("Shield now", "shield", account, isSepolia)}
           </button>
         </div>
@@ -552,7 +552,7 @@ function Dashboard({
             {showEmptyAssets ? "Hide empty assets" : `Show empty assets (${emptyRows.length})`}
           </button>
         </div>
-        {loading || pricesQuery.isLoading ? <p className="hint" style={{ marginTop: 12 }}>{loading ? "Loading registry assets..." : "Loading token prices..."}</p> : null}
+        {loading || pricesQuery.isLoading ? <p className="hint section-note">{loading ? "Loading registry assets..." : "Loading token prices..."}</p> : null}
       </div>
       {selectedRow ? (
         <AssetDetailModal
@@ -1026,7 +1026,7 @@ function TokenAvatar({ token, confidential, underlying, size }: { token: TokenMe
     <span className={className}>
       {icon.url && !broken ? <img src={icon.url} alt="" onError={() => setBroken(true)} /> : label}
       {confidential ? (
-        <span className="token-shield" aria-hidden="true" style={{ ["--token-shield-fill" as string]: shieldFill }}>
+        <span className="token-shield fill-accent" aria-hidden="true" style={{ ["--token-shield-fill" as string]: shieldFill }}>
           <TokenShieldIcon />
         </span>
       ) : null}
@@ -1171,7 +1171,7 @@ function CreateTokenModal({
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal sm" role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}>
         <button className="modal-close" onClick={onClose} aria-label="Close"><X size={18} /></button>
-        <div className="form-head" style={{ border: "none", padding: 0, marginBottom: 4 }}>
+        <div className="form-head plain-form-head">
           <h2>{tab === "add" ? "Add token" : "Create token"}</h2>
           <p>Register an existing pair, or deploy new ERC-20 / ERC-7984 wrappers.</p>
         </div>
@@ -1180,7 +1180,7 @@ function CreateTokenModal({
           <button className={tab === "create" ? "active" : ""} onClick={() => setTab("create")}>Create new</button>
         </div>
         {tab === "add" ? (
-          <div className="form-card" style={{ border: "none", background: "none", padding: 0, gap: 14 }}>
+          <div className="form-card bare-form-card">
             <div className="field">
               <label>Token type</label>
               <select className="input" value={category} onChange={(event) => setCategory(event.target.value as AddedToken["category"])}>
@@ -1206,7 +1206,7 @@ function CreateTokenModal({
             ) : null}
           </div>
         ) : (
-          <div className="form-card" style={{ border: "none", background: "none", padding: 0, gap: 14 }}>
+          <div className="form-card bare-form-card">
             <div className="field">
               <label>Token kind</label>
               <select className="input" value={createKind} onChange={(event) => setCreateKind(event.target.value as CreateKind)}>
@@ -1301,11 +1301,10 @@ function TokenDropdown({
     };
   }, [open]);
   return (
-    <div className="token-dropdown" style={fullWidth ? { width: "100%" } : undefined} onClick={(event) => event.stopPropagation()}>
+    <div className={fullWidth ? "token-dropdown full" : "token-dropdown"} onClick={(event) => event.stopPropagation()}>
       <button
         type="button"
-        className="token-trigger"
-        style={fullWidth ? { width: "100%" } : undefined}
+        className={fullWidth ? "token-trigger full" : "token-trigger"}
         disabled={options.length === 0}
         aria-haspopup="listbox"
         aria-expanded={open}
@@ -1649,23 +1648,23 @@ function UnifiedWrapPage({
       {mode === "shield" && shieldResult ? <ShieldResultPanel result={shieldResult} /> : null}
 
       {pending.length ? (
-        <section className="panel" style={{ marginTop: 24 }}>
+        <section className="panel panel-spacious-top pending-panel">
           <div className="section-title">
             <h2>Pending unwraps</h2>
             <span className="hint">{pending.length} saved</span>
           </div>
           <div className="activity-list">
             {pending.map((item) => (
-              <div className="activity-item" key={item.requestId + item.createdTxHash}>
+              <div className="activity-item pending-item" key={item.requestId + item.createdTxHash}>
                 <div className="activity-left">
                   <span className="activity-icon"><RefreshCw size={16} /></span>
-                  <div className="activity-meta">
+                  <div className="activity-meta pending-meta">
                     <strong>{shortAddress(item.requestId)}</strong>
                     <span>{item.status}</span>
                   </div>
                 </div>
                 <div className="activity-right">
-                  <button disabled={item.status === "finalized"} onClick={() => void finalize(item)}>Finalize</button>
+                  <button className="btn sm" disabled={item.status === "finalized"} onClick={() => void finalize(item)}>Finalize</button>
                 </div>
               </div>
             ))}
@@ -2042,7 +2041,7 @@ function ActivityPage({ items }: { items: ActivityItem[] }) {
   const slice = items.slice(current * ACTIVITY_PAGE_SIZE, current * ACTIVITY_PAGE_SIZE + ACTIVITY_PAGE_SIZE);
 
   return (
-    <div className="panel" style={{ maxWidth: 900 }}>
+    <div className="panel activity-panel">
       <div className="section-title">
         <h2>Activity</h2>
         <span className="hint">Local log · this browser only</span>
