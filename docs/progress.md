@@ -255,3 +255,32 @@
 - Cap nhat expectation token icon test theo asset local hien tai `/tokens-icon/USDC.svg`.
 - Chay npm run build: pass; con warning chunk/PURE annotation tu Privy/Zama dependencies.
 - Chay npm test: pass 5 files / 18 tests.
+## Hoan tat chinh dropdown va flow result
+- Token dropdown co class open, z-index cao hon va shadow ro hon de menu khong bi che boi card ben duoi.
+- Shadow card/popover duoc tang do tach lop tren nen sang.
+- Shield/Unshield flow hien result panel sau giao dich/request/finalize thanh cong voi Converted, View on Blockscout va Shield/Unshield more.
+- Tong balance Dashboard van tinh tren toan bo wallet rows, khong theo tab Custom/Official.
+- Chay npm test: pass 5 files / 18 tests.
+- Chay npm run build: pass; con warning chunk/PURE annotation tu Privy/Zama dependencies.
+
+## Hoan tat don UI va decrypt balance theo man
+- Bo cac subtitle/mo ta lap lai o topbar, Send, Faucet, Activity va card Available to shield.
+- Dashboard mac dinh tab All assets de load ca official token ngay tu dau; Custom/Official chi con la filter.
+- Active nav/tab ro hon, nut Add token co hover, Show empty assets can giua va co chevron xoay len/xuong.
+- Shield/Unshield va Send doc cache decrypt cho cToken balance; neu chua co cache thi hien nut Decrypt canh balance.
+- Chay npm test: pass 5 files / 18 tests.
+- Chay npm run build: pass; con warning chunk/PURE annotation tu Privy/Zama dependencies.
+
+## Hoan tat success/decrypt toast polish
+- Sau khi decrypt balance thanh cong, app hien toast `SYMBOL balance decrypted` tren Dashboard row, Asset detail, Shield/Unshield va Send.
+- Dropdown token full-width day caret ve ben phai, phu hop man Send.
+- Nut dao Shield/Unshield can giua giua hai card, dung mau vang ro hon va hover noi hon.
+- Step dang process co vien cam, nen cam nhat va shadow de trang thai active ro hon.
+- Tokens shielded sau khi shield thanh cong hien thanh success screen rieng, an form/progress cho toi khi bam Shield more hoac chuyen trang.
+- Popup Add/Create token co hover cho tab buttons.
+- Nut swap giua Shield/Unshield da bo bong do va tang khoang cach giua cac card tren/duoi de de nhin hon.
+- Tang do net cho icon Total balance, nut MAX/Decrypt va link tx trong process; doi process active sang vang dam theo theme.
+- Doi icon Tokens shielded sang circle-check ro hon va them MAX cho cToken sau khi balance da decrypt trong Unshield.
+- Thiet ke lai popup Add token/Create token voi header icon, segmented tabs, body form rieng, input/action ro hon va responsive mobile.
+- Chay npm test: pass 5 files / 18 tests.
+- Chay npm run build: pass; con warning chunk/PURE annotation tu Privy/Zama dependencies.

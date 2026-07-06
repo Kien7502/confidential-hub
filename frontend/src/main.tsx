@@ -27,7 +27,7 @@ const app = privyAppId ? (
       appearance: {
         theme: "light",
         accentColor: "#F3F0E9",
-        logo: "/zama-brand-icon.png",
+        logo: "/favicon.png",
         walletChainType: "ethereum-only"
       },
       loginMethods: ["wallet"],

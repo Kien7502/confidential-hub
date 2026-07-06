@@ -7,6 +7,7 @@ import {
   ArrowDownUp,
   Banknote,
   Check,
+  CircleCheckBig,
   ChevronDown,
   ChevronRight,
   Copy,
@@ -52,12 +53,15 @@ type FlowIntent = { page: "shield" | "unshield"; pairId?: string; tokenAddress?:
 type FlowStepState = "waiting" | "active" | "done" | "skipped" | "error";
 type ShieldStepId = "allowance" | "wrap";
 type ShieldResult = {
+  kind: "shield" | "unshield-request" | "unshield-finalize";
   approvalTxHash?: Hex;
-  wrapTxHash: Hex;
+  txHash: Hex;
   inputAmount: string;
   inputSymbol: string;
+  inputToken?: TokenMetadata;
   outputAmount: string;
   outputSymbol: string;
+  outputToken?: TokenMetadata;
 };
 type WalletAssetSnapshot = {
   publicBalance?: bigint;
@@ -134,6 +138,15 @@ function walletErrorMessage(error: unknown) {
   return /user rejected|user denied|rejected request|request rejected|denied transaction|cancel/i.test(message)
     ? "Transaction was cancelled."
     : message;
+}
+
+function cachedBigInt(value?: string) {
+  if (!value) return undefined;
+  try {
+    return BigInt(value);
+  } catch {
+    return undefined;
+  }
 }
 
 /** Blocking reason on the CTA label until the wallet is connected on Sepolia. */
@@ -263,11 +276,11 @@ export default function App({ privyConfigured }: { privyConfigured: boolean }) {
       <aside className={sidebarOpen ? "sidebar open" : "sidebar"}>
         <div className="brand">
           <span className="brand-mark">
-            <img src="/zama-brand-icon.png" alt="" />
+            <img src="/favicon.png" alt="" />
           </span>
           <span className="brand-name">
-            <strong>Confidential Hub</strong>
-            <span>Zama · ERC-7984</span>
+            <strong>Blyn</strong>
+            <span>Confidential assets</span>
           </span>
         </div>
         <nav className="nav" aria-label="Primary">
@@ -325,7 +338,7 @@ export default function App({ privyConfigured }: { privyConfigured: boolean }) {
             </button>
             <div>
               <h1>{titleFor(page)}</h1>
-              <p className="sub">{subtitleFor(page)}</p>
+              {subtitleFor(page) ? <p className="sub">{subtitleFor(page)}</p> : null}
             </div>
           </div>
           <div className="topbar-status">
@@ -338,13 +351,13 @@ export default function App({ privyConfigured }: { privyConfigured: boolean }) {
         </header>
 
         {page === "dashboard" ? (
-          <Dashboard pairs={pairs} addedPairs={addedPairs} standaloneTokens={standaloneTokens} loading={pairsQuery.isLoading} account={account} provider={walletProvider} decryptSigner={decryptSigner} actionLocked={actionLocked} isSepolia={isSepolia} onNavigate={goPage} onNavigateFlow={navigateFlow} pushActivity={pushActivity} addedTokens={addedTokens} saveTokens={saveTokens} />
+          <Dashboard pairs={pairs} addedPairs={addedPairs} standaloneTokens={standaloneTokens} loading={pairsQuery.isLoading} account={account} provider={walletProvider} decryptSigner={decryptSigner} actionLocked={actionLocked} isSepolia={isSepolia} onNavigate={goPage} onNavigateFlow={navigateFlow} pushActivity={pushActivity} onToast={setToast} addedTokens={addedTokens} saveTokens={saveTokens} />
         ) : null}
         {page === "shield" || page === "unshield" ? (
-          <UnifiedWrapPage pairs={allPairs} intent={flowIntent} account={account} provider={walletProvider} locked={actionLocked} isSepolia={isSepolia} pending={pendingUnwraps} savePending={savePending} onCreateWrapper={() => goPage("dashboard")} pushActivity={pushActivity} />
+          <UnifiedWrapPage pairs={allPairs} intent={flowIntent} account={account} provider={walletProvider} decryptSigner={decryptSigner} locked={actionLocked} isSepolia={isSepolia} pending={pendingUnwraps} savePending={savePending} onCreateWrapper={() => goPage("dashboard")} pushActivity={pushActivity} onToast={setToast} />
         ) : null}
         {page === "faucet" ? <FaucetPage pairs={pairs} account={account} provider={walletProvider} locked={actionLocked} isSepolia={isSepolia} pushActivity={pushActivity} /> : null}
-        {page === "send" ? <SendPage pairs={allPairs} standaloneTokens={standaloneTokens} account={account} provider={walletProvider} locked={actionLocked} isSepolia={isSepolia} pushActivity={pushActivity} /> : null}
+        {page === "send" ? <SendPage pairs={allPairs} standaloneTokens={standaloneTokens} account={account} provider={walletProvider} decryptSigner={decryptSigner} locked={actionLocked} isSepolia={isSepolia} pushActivity={pushActivity} onToast={setToast} /> : null}
         {page === "activity" ? <ActivityPage items={activity} /> : null}
       </main>
       {toast ? <div className="toast"><Check size={15} />{toast}</div> : null}
@@ -406,19 +419,19 @@ function titleFor(page: Page) {
     shield: "Shield / Unshield",
     unshield: "Shield / Unshield",
     faucet: "Faucet",
-    send: "Send confidential tokens",
+    send: "Send",
     activity: "Activity"
   }[page];
 }
 
 function subtitleFor(page: Page) {
   return {
-    dashboard: "Your shielded and public balances on Sepolia.",
-    shield: "Wrap public ERC-20 into confidential tokens and back.",
-    unshield: "Wrap public ERC-20 into confidential tokens and back.",
-    faucet: "Mint mock ERC-20 test tokens. Limit 1,000,000 per call.",
-    send: "Transfer confidential balances privately. Amounts stay encrypted on-chain.",
-    activity: "Local log · this browser only."
+    dashboard: "",
+    shield: "",
+    unshield: "",
+    faucet: "",
+    send: "",
+    activity: ""
   }[page];
 }
 
@@ -435,6 +448,7 @@ function Dashboard({
   onNavigate,
   onNavigateFlow,
   pushActivity,
+  onToast,
   addedTokens,
   saveTokens
 }: {
@@ -450,20 +464,21 @@ function Dashboard({
   onNavigate: (page: Page) => void;
   onNavigateFlow: (intent: Omit<FlowIntent, "nonce">) => void;
   pushActivity: (item: Omit<ActivityItem, "id" | "createdAt" | "chainId" | "account">) => void;
+  onToast: (message: string) => void;
   addedTokens: AddedToken[];
   saveTokens: (items: AddedToken[]) => void;
 }) {
   const [createRequest, setCreateRequest] = useState<CreateModalRequest | null>(null);
   const [selectedRowId, setSelectedRowId] = useState<string>();
   const [showEmptyAssets, setShowEmptyAssets] = useState(false);
-  const [assetTab, setAssetTab] = useState<"custom" | "official">("custom");
+  const [assetTab, setAssetTab] = useState<"all" | "custom" | "official">("all");
   const [assetSnapshots, setAssetSnapshots] = useState<Record<string, WalletAssetSnapshot>>({});
   const official = pairs.filter((pair) => pair.source === "official");
   const registryCustom = pairs.filter((pair) => pair.source !== "official");
   const customRows = [...buildOfficialRows(registryCustom), ...buildUserRows(addedTokens, addedPairs, standaloneTokens)];
   const officialRows = buildOfficialRows(official);
   const walletRows = [...customRows, ...officialRows].filter((row) => row.underlying || row.confidential);
-  const activeRows = (assetTab === "custom" ? customRows : officialRows).filter((row) => row.underlying || row.confidential);
+  const activeRows = (assetTab === "all" ? walletRows : assetTab === "custom" ? customRows : officialRows).filter((row) => row.underlying || row.confidential);
   const priceSymbols = Array.from(new Set(walletRows.map((row) => priceSymbolForAsset(row)).filter(Boolean) as string[]));
   const pricesQuery = useQuery({
     queryKey: ["token-prices", priceSymbols.join(",")],
@@ -508,7 +523,6 @@ function Dashboard({
         <div className="shieldable-card">
           <span className="label">Available to shield</span>
           <div className="amount">{formatFiat(shieldableValue)}</div>
-          <p className="meta">Public ERC-20 you can wrap into confidential tokens.</p>
           <button className="btn primary sm fit-content" disabled={actionLocked || walletRows.length === 0} onClick={() => onNavigateFlow({ page: "shield" })}>
             {ctaLabel("Shield now", "shield", account, isSepolia)}
           </button>
@@ -521,6 +535,7 @@ function Dashboard({
           <span className="hint">Prices via CoinGecko</span>
         </div>
         <div className="asset-tabs" role="tablist" aria-label="Asset groups">
+          <button type="button" role="tab" aria-selected={assetTab === "all"} className={assetTab === "all" ? "active" : ""} onClick={() => setAssetTab("all")}>All assets</button>
           <button type="button" role="tab" aria-selected={assetTab === "custom"} className={assetTab === "custom" ? "active" : ""} onClick={() => setAssetTab("custom")}>Your custom asset</button>
           <button type="button" role="tab" aria-selected={assetTab === "official"} className={assetTab === "official" ? "active" : ""} onClick={() => setAssetTab("official")}>Official token</button>
         </div>
@@ -538,6 +553,7 @@ function Dashboard({
               actionLocked={actionLocked}
               prices={prices}
               pushActivity={pushActivity}
+              onToast={onToast}
               onSnapshot={(snapshot) => updateSnapshot(row.id, snapshot)}
               onOpen={() => setSelectedRowId(row.id)}
             />
@@ -550,6 +566,7 @@ function Dashboard({
           </button>
           <button className="link-btn" onClick={() => setShowEmptyAssets((value) => !value)}>
             {showEmptyAssets ? "Hide empty assets" : `Show empty assets (${emptyRows.length})`}
+            <ChevronDown size={15} className={showEmptyAssets ? "chevron up" : "chevron"} />
           </button>
         </div>
         {loading || pricesQuery.isLoading ? <p className="hint section-note">{loading ? "Loading registry assets..." : "Loading token prices..."}</p> : null}
@@ -565,6 +582,7 @@ function Dashboard({
           provider={provider}
           decryptSigner={decryptSigner}
           pushActivity={pushActivity}
+          onToast={onToast}
           onClose={() => setSelectedRowId(undefined)}
           onNavigateFlow={(intent) => {
             setSelectedRowId(undefined);
@@ -591,6 +609,7 @@ function WalletAssetRow({
   actionLocked,
   prices,
   pushActivity,
+  onToast,
   onSnapshot,
   onOpen
 }: {
@@ -601,6 +620,7 @@ function WalletAssetRow({
   actionLocked: boolean;
   prices: TokenPriceMap;
   pushActivity: (item: Omit<ActivityItem, "id" | "createdAt" | "chainId" | "account">) => void;
+  onToast: (message: string) => void;
   onSnapshot: (snapshot: WalletAssetSnapshot) => void;
   onOpen: () => void;
 }) {
@@ -694,6 +714,7 @@ function WalletAssetRow({
       next[cacheKey(SEPOLIA_CHAIN_ID, account, confidential.address, handle)] = { value, lastDecryptedAt: Date.now() };
       writeDecryptCache(next);
       setDecryptCacheVersion((version) => version + 1);
+      onToast(`${confidential.symbol} balance decrypted`);
     } catch (error) {
       const detail = error instanceof Error ? error.message : String(error);
       setDecryptError(detail);
@@ -759,6 +780,7 @@ function AssetDetailModal({
   provider,
   decryptSigner,
   pushActivity,
+  onToast,
   onClose,
   onNavigateFlow,
   onSend
@@ -772,6 +794,7 @@ function AssetDetailModal({
   provider?: EthereumProvider;
   decryptSigner?: TypedDataSigner;
   pushActivity: (item: Omit<ActivityItem, "id" | "createdAt" | "chainId" | "account">) => void;
+  onToast: (message: string) => void;
   onClose: () => void;
   onNavigateFlow: (intent: Omit<FlowIntent, "nonce">) => void;
   onSend: () => void;
@@ -803,6 +826,7 @@ function AssetDetailModal({
       const next = readDecryptCache();
       next[cacheKey(SEPOLIA_CHAIN_ID, account, confidential.address, handle)] = { value, lastDecryptedAt: Date.now() };
       writeDecryptCache(next);
+      onToast(`${confidential.symbol} balance decrypted`);
     } catch (error) {
       const detail = error instanceof Error ? error.message : String(error);
       setDecryptError(detail);
@@ -1169,18 +1193,23 @@ function CreateTokenModal({
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal sm" role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}>
+      <div className="modal sm token-modal" role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}>
         <button className="modal-close" onClick={onClose} aria-label="Close"><X size={18} /></button>
-        <div className="form-head plain-form-head">
-          <h2>{tab === "add" ? "Add token" : "Create token"}</h2>
-          <p>Register an existing pair, or deploy new ERC-20 / ERC-7984 wrappers.</p>
+        <div className="token-modal-head">
+          <span className="token-modal-icon">
+            {tab === "add" ? <Plus size={20} /> : <Shield size={20} />}
+          </span>
+          <div>
+            <h2>{tab === "add" ? "Add token" : "Create token"}</h2>
+            <p>{tab === "add" ? "Add an existing ERC20 or cToken contract to your wallet view." : "Deploy a Sepolia ERC20 or confidential wrapper, then add it to the app."}</p>
+          </div>
         </div>
-        <div className="tabs">
+        <div className="tabs token-modal-tabs">
           <button className={tab === "add" ? "active" : ""} onClick={() => setTab("add")}>Add existing</button>
           <button className={tab === "create" ? "active" : ""} onClick={() => setTab("create")}>Create new</button>
         </div>
         {tab === "add" ? (
-          <div className="form-card bare-form-card">
+          <div className="token-modal-body">
             <div className="field">
               <label>Token type</label>
               <select className="input" value={category} onChange={(event) => setCategory(event.target.value as AddedToken["category"])}>
@@ -1198,7 +1227,7 @@ function CreateTokenModal({
               Add token
             </button>
             {addedTokens.length ? (
-              <div className="token-chips">
+              <div className="token-chips token-modal-chips" aria-label="Added tokens">
                 {addedTokens.map((token) => (
                   <span key={token.id}>{token.label || shortAddress(token.address)} · {token.category}</span>
                 ))}
@@ -1206,7 +1235,7 @@ function CreateTokenModal({
             ) : null}
           </div>
         ) : (
-          <div className="form-card bare-form-card">
+          <div className="token-modal-body">
             <div className="field">
               <label>Token kind</label>
               <select className="input" value={createKind} onChange={(event) => setCreateKind(event.target.value as CreateKind)}>
@@ -1300,8 +1329,9 @@ function TokenDropdown({
       window.removeEventListener("keydown", onKey);
     };
   }, [open]);
+  const dropdownClassName = ["token-dropdown", fullWidth ? "full" : "", open ? "open" : ""].filter(Boolean).join(" ");
   return (
-    <div className={fullWidth ? "token-dropdown full" : "token-dropdown"} onClick={(event) => event.stopPropagation()}>
+    <div className={dropdownClassName} onClick={(event) => event.stopPropagation()}>
       <button
         type="button"
         className={fullWidth ? "token-trigger full" : "token-trigger"}
@@ -1374,23 +1404,27 @@ function UnifiedWrapPage({
   intent,
   account,
   provider,
+  decryptSigner,
   locked,
   isSepolia,
   pending,
   savePending,
   onCreateWrapper,
-  pushActivity
+  pushActivity,
+  onToast
 }: {
   pairs: TokenWrapperPair[];
   intent?: FlowIntent;
   account?: Address;
   provider?: EthereumProvider;
+  decryptSigner?: TypedDataSigner;
   locked: boolean;
   isSepolia: boolean;
   pending: PendingUnwrap[];
   savePending: (items: PendingUnwrap[]) => void;
   onCreateWrapper: () => void;
   pushActivity: (item: Omit<ActivityItem, "id" | "createdAt" | "chainId" | "account">) => void;
+  onToast: (message: string) => void;
 }) {
   const [mode, setMode] = useState<"shield" | "unshield">(intent?.page ?? "shield");
   const [pairId, setPairId] = useState("");
@@ -1403,6 +1437,9 @@ function UnifiedWrapPage({
   const [shieldResult, setShieldResult] = useState<ShieldResult>();
   const [approvalTxHash, setApprovalTxHash] = useState<Hex>();
   const [shieldFailedStep, setShieldFailedStep] = useState<ShieldStepId>();
+  const [flowDecryptPhase, setFlowDecryptPhase] = useState<"idle" | "signing" | "decrypting">("idle");
+  const [flowDecryptError, setFlowDecryptError] = useState("");
+  const [flowDecryptCacheVersion, setFlowDecryptCacheVersion] = useState(0);
 
   const shieldOptions = uniqueShieldPairs(pairs);
   const unshieldOptions = uniqueUnshieldPairs(pairs);
@@ -1417,6 +1454,21 @@ function UnifiedWrapPage({
   const parsed = pair ? parseTokenAmount(amount, inputDecimals) : 0n;
   const shieldOutput = pair && actionable ? estimateWrappedAmount(parsed, pair.rate) : 0n;
   const outputAmount = mode === "shield" ? (actionable ? formatTokenAmount(shieldOutput, pair?.confidential.decimals ?? 6) : "0.00") : amount || "0.00";
+  const flowDecryptCache = useMemo(() => readDecryptCache(), [flowDecryptCacheVersion]);
+  const flowDecryptCacheKey = account && pair && confidentialHandle ? cacheKey(SEPOLIA_CHAIN_ID, account, pair.confidential.address, confidentialHandle) : undefined;
+  const flowCached = flowDecryptCacheKey ? flowDecryptCache[flowDecryptCacheKey] : undefined;
+  const confidentialFlowValue = cachedBigInt(flowCached?.value);
+  const confidentialFlowBalance = pair
+    ? getConfidentialBalanceLabel({
+        handle: confidentialHandle,
+        cachedValue: flowCached?.value,
+        decimals: pair.confidential.decimals,
+        symbol: pair.confidential.symbol,
+        status: "ready",
+        error: flowDecryptError
+      })
+    : "-";
+  const canDecryptFlowBalance = Boolean(pair && confidentialHandle && !isZeroConfidentialHandle(confidentialHandle) && confidentialFlowBalance === "encrypted");
 
   useEffect(() => {
     if (intent?.page) setMode(intent.page);
@@ -1424,7 +1476,6 @@ function UnifiedWrapPage({
 
   useEffect(() => {
     setError("");
-    setShieldResult(undefined);
     setApprovalTxHash(undefined);
     setShieldFailedStep(undefined);
   }, [mode, selectedPairId, amount]);
@@ -1494,12 +1545,15 @@ function UnifiedWrapPage({
       await waitForTransactionSuccess(txHash);
       pushActivity({ type: "wrap", status: "success", title: `Shielded ${pair.underlying.symbol}`, detail: `${amount} ${pair.underlying.symbol}`, txHash, tokenSymbol: pair.confidential.symbol, tokenIconUrl: pair.confidential.iconUrl ?? pair.underlying.iconUrl, tokenConfidential: true, amount: `${outputAmount} ${pair.confidential.symbol}` });
       setShieldResult({
+        kind: "shield",
         approvalTxHash: approval,
-        wrapTxHash: txHash,
+        txHash,
         inputAmount: amount,
         inputSymbol: pair.underlying.symbol,
+        inputToken: pair.underlying,
         outputAmount,
-        outputSymbol: pair.confidential.symbol
+        outputSymbol: pair.confidential.symbol,
+        outputToken: pair.confidential
       });
       setShieldFailedStep(undefined);
     } catch (error) {
@@ -1516,6 +1570,8 @@ function UnifiedWrapPage({
     if (!account || !provider || !pair || parsed <= 0n) return;
     setBusy(true);
     setPhase("requesting");
+    setError("");
+    setShieldResult(undefined);
     try {
       const instance = await createEncryptedInput(provider, pair.confidential.address, account, parsed);
       const result = await requestUnwrap(provider, pair.confidential.address, account, instance.handle, instance.proof);
@@ -1530,7 +1586,18 @@ function UnifiedWrapPage({
         createdAt: Date.now()
       };
       savePending([item, ...pending]);
-      pushActivity({ type: "unwrap-request", status: "pending", title: `Request unshield ${pair.confidential.symbol}`, txHash: result.txHash });
+      pushActivity({ type: "unwrap-request", status: "pending", title: "Request unshield", txHash: result.txHash });
+      await waitForTransactionSuccess(result.txHash);
+      setShieldResult({
+        kind: "unshield-request",
+        txHash: result.txHash,
+        inputAmount: amount,
+        inputSymbol: pair.confidential.symbol,
+        inputToken: pair.confidential,
+        outputAmount: amount,
+        outputSymbol: pair.underlying.symbol,
+        outputToken: pair.underlying
+      });
     } catch (error) {
       pushActivity({ type: "unwrap-request", status: "failed", title: "Unshield request failed", detail: error instanceof Error ? error.message : String(error) });
     } finally {
@@ -1545,11 +1612,57 @@ function UnifiedWrapPage({
       const proof = item.proof ?? "0x";
       const clearValue = BigInt(item.clearValue ?? "0");
       const txHash = await finalizeUnwrap(provider, item.wrapper, account, item.requestId, clearValue, proof as Hex);
+      await waitForTransactionSuccess(txHash);
       const next = pending.map((entry) => (entry.requestId === item.requestId ? { ...entry, status: "finalized" as const } : entry));
       savePending(next);
-      pushActivity({ type: "unwrap-finalize", status: "pending", title: "Finalize unshield", txHash });
+      const resultPair = pairs.find((entry) => entry.confidential.address.toLowerCase() === item.wrapper.toLowerCase());
+      const finalizedAmount = formatTokenAmount(clearValue, resultPair?.confidential.decimals ?? 6);
+      setShieldResult({
+        kind: "unshield-finalize",
+        txHash,
+        inputAmount: finalizedAmount,
+        inputSymbol: resultPair?.confidential.symbol ?? "cToken",
+        inputToken: resultPair?.confidential,
+        outputAmount: finalizedAmount,
+        outputSymbol: resultPair?.underlying.symbol ?? "ERC20",
+        outputToken: resultPair?.underlying
+      });
+      pushActivity({ type: "unwrap-finalize", status: "success", title: "Finalize unshield", txHash });
     } catch (error) {
       pushActivity({ type: "unwrap-finalize", status: "failed", title: "Finalize failed", detail: error instanceof Error ? error.message : String(error) });
+    }
+  }
+
+  async function decryptFlowBalance() {
+    if (!account) {
+      setFlowDecryptError("Connect a wallet before decrypting.");
+      return;
+    }
+    if (!provider) {
+      setFlowDecryptError("Wallet provider is not ready yet.");
+      return;
+    }
+    if (!pair || !confidentialHandle) {
+      setFlowDecryptError("Balance handle has not loaded yet.");
+      return;
+    }
+    if (isZeroConfidentialHandle(confidentialHandle)) {
+      setFlowDecryptError("No encrypted balance to decrypt.");
+      return;
+    }
+    setFlowDecryptPhase("signing");
+    setFlowDecryptError("");
+    try {
+      const value = await runUserDecrypt(provider, pair.confidential.address, account, confidentialHandle, decryptSigner, (phase) => setFlowDecryptPhase(phase));
+      const next = readDecryptCache();
+      next[cacheKey(SEPOLIA_CHAIN_ID, account, pair.confidential.address, confidentialHandle)] = { value, lastDecryptedAt: Date.now() };
+      writeDecryptCache(next);
+      setFlowDecryptCacheVersion((version) => version + 1);
+      onToast(`${pair.confidential.symbol} balance decrypted`);
+    } catch (error) {
+      setFlowDecryptError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setFlowDecryptPhase("idle");
     }
   }
 
@@ -1559,11 +1672,11 @@ function UnifiedWrapPage({
         ? `${formatTokenAmount(publicBalance, pair.underlying.decimals)} ${pair.underlying.symbol}`
         : "-"
       : pair
-        ? confidentialBalancePreview(confidentialHandle, pair.confidential.symbol)
+        ? confidentialFlowBalance === "encrypted" ? `**** ${pair.confidential.symbol}` : confidentialFlowBalance
         : "-";
   const outputBalance = mode === "shield"
     ? actionable && pair
-      ? confidentialBalancePreview(confidentialHandle, pair.confidential.symbol)
+      ? confidentialFlowBalance === "encrypted" ? `**** ${pair.confidential.symbol}` : confidentialFlowBalance
       : "No cToken wrapper"
     : pair
       ? `${formatTokenAmount(publicBalance, pair.underlying.decimals)} ${pair.underlying.symbol}`
@@ -1583,10 +1696,15 @@ function UnifiedWrapPage({
   const submitReady = mode === "shield" ? (actionable ? "Shield" : "Wrapper required") : "Request unshield";
   const submitText = busy ? submitLabel : mode === "shield" && !actionable ? "Wrapper required" : ctaLabel(submitReady, mode === "shield" ? "shield" : "unshield", account, isSepolia);
   const disabled = locked || !pair || parsed <= 0n || busy || (mode === "shield" && !actionable);
-  const canSetMax = mode === "shield" && pair && publicBalance !== undefined && publicBalance > 0n;
+  const canSetMax = mode === "shield"
+    ? pair && publicBalance !== undefined && publicBalance > 0n
+    : pair && confidentialFlowValue !== undefined && confidentialFlowValue > 0n;
   function setMax() {
     if (mode === "shield" && pair && publicBalance !== undefined) {
       setAmount(formatTokenAmount(publicBalance, pair.underlying.decimals).replace(/,/g, ""));
+    }
+    if (mode === "unshield" && pair && confidentialFlowValue !== undefined) {
+      setAmount(formatTokenAmount(confidentialFlowValue, pair.confidential.decimals).replace(/,/g, ""));
     }
   }
   const shieldSteps = buildShieldSteps({
@@ -1594,6 +1712,14 @@ function UnifiedWrapPage({
     busy,
     approvalTxHash
   });
+
+  if (shieldResult?.kind === "shield") {
+    return (
+      <div className="flow-page success-only">
+        <ShieldResultPanel result={shieldResult} onReset={() => { setShieldResult(undefined); setAmount(""); }} />
+      </div>
+    );
+  }
 
   return (
     <div className="flow-page">
@@ -1607,6 +1733,12 @@ function UnifiedWrapPage({
         </div>
         <div className="flow-sub">
           <span>Balance: {inputBalance}</span>
+          {mode === "unshield" && canDecryptFlowBalance ? (
+            <button className="max decrypt-inline" disabled={locked || flowDecryptPhase !== "idle"} onClick={() => void decryptFlowBalance()}>
+              <Eye size={12} />
+              {flowDecryptPhase === "signing" ? "Signing" : flowDecryptPhase === "decrypting" ? "Decrypting" : "Decrypt"}
+            </button>
+          ) : null}
           {canSetMax ? <button className="max" onClick={setMax}>MAX</button> : null}
         </div>
       </div>
@@ -1635,17 +1767,24 @@ function UnifiedWrapPage({
         </div>
         <div className="flow-sub">
           <span>Balance: {outputBalance}</span>
+          {mode === "shield" && canDecryptFlowBalance ? (
+            <button className="max decrypt-inline" disabled={locked || flowDecryptPhase !== "idle"} onClick={() => void decryptFlowBalance()}>
+              <Eye size={12} />
+              {flowDecryptPhase === "signing" ? "Signing" : flowDecryptPhase === "decrypting" ? "Decrypting" : "Decrypt"}
+            </button>
+          ) : null}
         </div>
       </div>
 
       {mode === "shield" && pair && parsed > 0n && shieldOutput === 0n ? <p className="flow-warning">Amount is below the wrapper rate and may mint zero confidential tokens.</p> : null}
       {mode === "shield" && !actionable && pair ? <p className="flow-warning">No valid wrapper is available for this ERC20 yet. Create or add its cToken wrapper before shielding.</p> : null}
+      {flowDecryptError ? <p className="flow-warning">{flowDecryptError}</p> : null}
       <button className="btn primary flow-submit" disabled={disabled} onClick={() => void (mode === "shield" ? submitShield() : submitUnshield())}>
         {submitText}
       </button>
       {mode === "shield" && shieldSteps.length > 0 ? <FlowSteps steps={shieldSteps} /> : null}
       {mode === "shield" && error ? <p className="flow-warning">{error}</p> : null}
-      {mode === "shield" && shieldResult ? <ShieldResultPanel result={shieldResult} /> : null}
+      {shieldResult ? <ShieldResultPanel result={shieldResult} onReset={() => { setShieldResult(undefined); setAmount(""); }} /> : null}
 
       {pending.length ? (
         <section className="panel panel-spacious-top pending-panel">
@@ -1730,27 +1869,43 @@ function FlowSteps({ steps }: { steps: Array<{ id: ShieldStepId; label: string; 
   );
 }
 
-function ShieldResultPanel({ result }: { result: ShieldResult }) {
+function ShieldResultPanel({ result, onReset }: { result: ShieldResult; onReset: () => void }) {
+  const isShield = result.kind === "shield";
+  const isFinalized = result.kind === "unshield-finalize";
+  const heading = isShield ? "Tokens shielded" : isFinalized ? "Tokens unshielded" : "Unshield requested";
+  const copy = isShield
+    ? "Your tokens are now shielded into their confidential counterpart."
+    : isFinalized
+      ? "Your confidential tokens have been finalized back into their public counterpart."
+      : "Your unshield request is confirmed. Finalize the pending request below when the proof is ready.";
+  const resetLabel = isShield ? "Shield more" : "Unshield more";
   return (
-    <div className="flow-result">
-      <div className="rhead">
-        <Check size={16} />
-        Shield complete
+    <div className="flow-result success flow-success-card">
+      <div className="success-mark">
+        <CircleCheckBig size={38} strokeWidth={2.6} />
       </div>
-      <div className="grid">
-        <span>You shielded</span>
-        <strong>{result.inputAmount} {result.inputSymbol}</strong>
-        <span>You received</span>
-        <strong>{result.outputAmount} {result.outputSymbol}</strong>
-        {result.approvalTxHash ? (
-          <>
-            <span>Approve tx</span>
-            <a href={transactionUrl(result.approvalTxHash)} target="_blank" rel="noreferrer">{shortAddress(result.approvalTxHash)}</a>
-          </>
-        ) : null}
-        <span>Shield tx</span>
-        <a href={transactionUrl(result.wrapTxHash)} target="_blank" rel="noreferrer">{shortAddress(result.wrapTxHash)}</a>
+      <div className="success-copy">
+        <span>{heading}</span>
+        <p>{copy}</p>
       </div>
+      <div className="conversion-summary">
+        <div className="conversion-token">
+          {result.inputToken ? <TokenAvatar token={result.inputToken} confidential={!isShield} underlying={!isShield ? result.outputToken : undefined} /> : null}
+          <strong>{result.inputAmount} {result.inputSymbol}</strong>
+        </div>
+        <ChevronRight size={22} className="conversion-arrow" />
+        <div className="conversion-token">
+          {result.outputToken ? <TokenAvatar token={result.outputToken} confidential={isShield} underlying={isShield ? result.inputToken : undefined} /> : null}
+          <strong>{result.outputAmount} {result.outputSymbol}</strong>
+        </div>
+      </div>
+      <div className="result-actions">
+        <a className="text-action" href={transactionUrl(result.txHash)} target="_blank" rel="noreferrer">View on Blockscout</a>
+        <button type="button" className="btn primary sm" onClick={onReset}>{resetLabel}</button>
+      </div>
+      {result.approvalTxHash ? (
+        <a className="result-link" href={transactionUrl(result.approvalTxHash)} target="_blank" rel="noreferrer">Approve tx {shortAddress(result.approvalTxHash)}</a>
+      ) : null}
     </div>
   );
 }
@@ -1773,17 +1928,21 @@ function SendPage({
   standaloneTokens,
   account,
   provider,
+  decryptSigner,
   locked,
   isSepolia,
-  pushActivity
+  pushActivity,
+  onToast
 }: {
   pairs: TokenWrapperPair[];
   standaloneTokens: StandaloneConfidentialToken[];
   account?: Address;
   provider?: EthereumProvider;
+  decryptSigner?: TypedDataSigner;
   locked: boolean;
   isSepolia: boolean;
   pushActivity: (item: Omit<ActivityItem, "id" | "createdAt" | "chainId" | "account">) => void;
+  onToast: (message: string) => void;
 }) {
   const tokens = useMemo<SendToken[]>(() => {
     const fromPairs = pairs
@@ -1805,12 +1964,27 @@ function SendPage({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [handle, setHandle] = useState<Hex>();
+  const [decryptPhase, setDecryptPhase] = useState<"idle" | "signing" | "decrypting">("idle");
+  const [decryptCacheVersion, setDecryptCacheVersion] = useState(0);
 
   const selected = tokens.find((token) => token.address.toLowerCase() === tokenAddress.toLowerCase()) ?? tokens[0];
   const decimals = selected?.metadata.decimals ?? 6;
   const parsed = selected ? parseTokenAmount(amount, decimals) : 0n;
   const recipientValid = isAddress(recipient);
-  const balanceLabel = !selected ? "-" : confidentialBalancePreview(handle, selected.metadata.symbol);
+  const decryptCache = useMemo(() => readDecryptCache(), [decryptCacheVersion]);
+  const decryptCacheKey = account && selected && handle ? cacheKey(SEPOLIA_CHAIN_ID, account, selected.address, handle) : undefined;
+  const cached = decryptCacheKey ? decryptCache[decryptCacheKey] : undefined;
+  const balanceLabel = !selected
+    ? "-"
+    : getConfidentialBalanceLabel({
+        handle,
+        cachedValue: cached?.value,
+        decimals: selected.metadata.decimals,
+        symbol: selected.metadata.symbol,
+        status: "ready",
+        error
+      });
+  const canDecryptBalance = Boolean(selected && handle && !isZeroConfidentialHandle(handle) && balanceLabel === "encrypted");
 
   useEffect(() => {
     if (!tokenAddress && tokens[0]) setTokenAddress(tokens[0].address);
@@ -1831,6 +2005,39 @@ function SendPage({
       cancelled = true;
     };
   }, [account, selected?.address]);
+
+  async function decryptBalance() {
+    if (!account) {
+      setError("Connect a wallet before decrypting.");
+      return;
+    }
+    if (!provider) {
+      setError("Wallet provider is not ready yet.");
+      return;
+    }
+    if (!selected || !handle) {
+      setError("Balance handle has not loaded yet.");
+      return;
+    }
+    if (isZeroConfidentialHandle(handle)) {
+      setError("No encrypted balance to decrypt.");
+      return;
+    }
+    setDecryptPhase("signing");
+    setError("");
+    try {
+      const value = await runUserDecrypt(provider, selected.address, account, handle, decryptSigner, (phase) => setDecryptPhase(phase));
+      const next = readDecryptCache();
+      next[cacheKey(SEPOLIA_CHAIN_ID, account, selected.address, handle)] = { value, lastDecryptedAt: Date.now() };
+      writeDecryptCache(next);
+      setDecryptCacheVersion((version) => version + 1);
+      onToast(`${selected.metadata.symbol} balance decrypted`);
+    } catch (error) {
+      setError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setDecryptPhase("idle");
+    }
+  }
 
   async function submit() {
     if (!account || !provider || !selected || parsed <= 0n || !recipientValid) return;
@@ -1853,20 +2060,24 @@ function SendPage({
   return (
     <div className="form-page">
       <div className="form-card">
-        <div className="form-head">
-          <h2>Send confidential tokens</h2>
-          <p>Transfer confidential balances privately. Amounts stay encrypted on-chain.</p>
-        </div>
         <div className="field">
           <label>Token</label>
           <TokenDropdown
-            options={tokens.map((token) => ({ value: token.address, token: token.metadata, confidential: true, underlying: token.underlying, balance: "****", encrypted: true }))}
+            options={tokens.map((token) => ({ value: token.address, token: token.metadata, confidential: true, underlying: token.underlying, balance: token.address === selected?.address && balanceLabel !== "encrypted" ? balanceLabel : "****", encrypted: token.address !== selected?.address || balanceLabel === "encrypted" }))}
             value={selected?.address ?? ""}
             setValue={setTokenAddress}
             placeholder="No confidential tokens"
             fullWidth
           />
-          <span className="help">Confidential balance: {balanceLabel} — decrypt on the dashboard to see the exact amount.</span>
+          <span className="help balance-help">
+            Confidential balance: {balanceLabel === "encrypted" && selected ? `**** ${selected.metadata.symbol}` : balanceLabel}
+            {canDecryptBalance ? (
+              <button className="inline-action" disabled={locked || decryptPhase !== "idle"} onClick={() => void decryptBalance()}>
+                <Eye size={12} />
+                {decryptPhase === "signing" ? "Signing" : decryptPhase === "decrypting" ? "Decrypting" : "Decrypt"}
+              </button>
+            ) : null}
+          </span>
         </div>
         <div className="field">
           <label htmlFor="send-to">Recipient address</label>
@@ -1933,10 +2144,6 @@ function FaucetPage({
   return (
     <div className="form-page">
       <div className="form-card">
-        <div className="form-head">
-          <h2>Faucet</h2>
-          <p>Mint mock ERC-20 test tokens. Limit 1,000,000 per call.</p>
-        </div>
         <div className="field">
           <label>Token</label>
           <div className="faucet-grid">
@@ -2044,7 +2251,6 @@ function ActivityPage({ items }: { items: ActivityItem[] }) {
     <div className="panel activity-panel">
       <div className="section-title">
         <h2>Activity</h2>
-        <span className="hint">Local log · this browser only</span>
       </div>
       {items.length === 0 ? (
         <div className="empty-state">
