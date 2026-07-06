@@ -156,8 +156,24 @@ function ctaLabel(ready: string, verb: string, account: unknown, isSepolia: bool
   return ready;
 }
 
+/** Deterministic two-stop gradient derived from a wallet address, so every
+ *  connected account gets a stable, unique avatar instead of a blank circle. */
+function AddressAvatar({ address, className = "wallet-avatar" }: { address?: string; className?: string }) {
+  if (!address) return <span className={className} aria-hidden="true" />;
+  let h = 0;
+  for (let i = 2; i < address.length; i++) h = (h * 31 + address.charCodeAt(i)) % 360;
+  const h2 = (h + 40) % 360;
+  return (
+    <span
+      className={className}
+      aria-hidden="true"
+      style={{ background: `linear-gradient(135deg, hsl(${h} 70% 60%), hsl(${h2} 75% 45%))` }}
+    />
+  );
+}
+
 export default function App({ privyConfigured }: { privyConfigured: boolean }) {
-  const { ready: privyReady, login, logout } = usePrivy();
+  const { ready: privyReady, authenticated, login, logout } = usePrivy();
   const { ready: walletsReady, wallets } = useWallets();
   const { signTypedData } = useSignTypedData();
   const [page, setPage] = useState<Page>("dashboard");
@@ -180,7 +196,9 @@ export default function App({ privyConfigured }: { privyConfigured: boolean }) {
     return () => clearTimeout(timer);
   }, [toast]);
   const activeWallet = ethereumWallet(wallets);
-  const account = activeWallet?.address && isAddress(activeWallet.address) ? getAddress(activeWallet.address) : undefined;
+  // Gate the account on Privy's authenticated flag: after logout an injected
+  // wallet can linger in useWallets(), so without this the UI stays "connected".
+  const account = authenticated && activeWallet?.address && isAddress(activeWallet.address) ? getAddress(activeWallet.address) : undefined;
   const chainId = parsePrivyChainId(activeWallet?.chainId);
   const isPrivyEmbeddedWallet = activeWallet?.walletClientType === "privy" || activeWallet?.walletClientType === "privy-v2";
   const signDecryptTypedData = useCallback<TypedDataSigner>(
@@ -402,7 +420,7 @@ function WalletMenu({
         aria-expanded={open}
         onClick={() => setOpen((value) => !value)}
       >
-        <span className="wallet-avatar" aria-hidden="true" />
+        <AddressAvatar address={account} />
         <span className="wallet-meta">
           <strong>{shortAddress(account)}</strong>
           <span>{isSepolia ? "Sepolia" : "Wrong network"}</span>
