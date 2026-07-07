@@ -184,6 +184,7 @@ export default function App({ privyConfigured }: { privyConfigured: boolean }) {
   const [walletProvider, setWalletProvider] = useState<EthereumProvider>();
   const [flowIntent, setFlowIntent] = useState<FlowIntent>();
   const [toast, setToast] = useState("");
+  const [balanceRefreshNonce, setBalanceRefreshNonce] = useState(0);
   const copyAddress = useCallback((value: string, label = "Address copied") => {
     void navigator.clipboard?.writeText(value).then(
       () => setToast(label),
@@ -369,13 +370,13 @@ export default function App({ privyConfigured }: { privyConfigured: boolean }) {
         </header>
 
         {page === "dashboard" ? (
-          <Dashboard pairs={pairs} addedPairs={addedPairs} standaloneTokens={standaloneTokens} loading={pairsQuery.isLoading} account={account} provider={walletProvider} decryptSigner={decryptSigner} actionLocked={actionLocked} isSepolia={isSepolia} onNavigate={goPage} onNavigateFlow={navigateFlow} pushActivity={pushActivity} onToast={setToast} addedTokens={addedTokens} saveTokens={saveTokens} />
+          <Dashboard pairs={pairs} addedPairs={addedPairs} standaloneTokens={standaloneTokens} loading={pairsQuery.isLoading} account={account} provider={walletProvider} decryptSigner={decryptSigner} actionLocked={actionLocked} isSepolia={isSepolia} refreshNonce={balanceRefreshNonce} onNavigate={goPage} onNavigateFlow={navigateFlow} pushActivity={pushActivity} onToast={setToast} addedTokens={addedTokens} saveTokens={saveTokens} />
         ) : null}
         {page === "shield" || page === "unshield" ? (
-          <UnifiedWrapPage pairs={allPairs} intent={flowIntent} account={account} provider={walletProvider} decryptSigner={decryptSigner} locked={actionLocked} isSepolia={isSepolia} pending={pendingUnwraps} savePending={savePending} onCreateWrapper={() => goPage("dashboard")} pushActivity={pushActivity} onToast={setToast} />
+          <UnifiedWrapPage pairs={allPairs} intent={flowIntent} account={account} provider={walletProvider} decryptSigner={decryptSigner} locked={actionLocked} isSepolia={isSepolia} pending={pendingUnwraps} savePending={savePending} onCreateWrapper={() => goPage("dashboard")} onBalancesChanged={() => setBalanceRefreshNonce((nonce) => nonce + 1)} pushActivity={pushActivity} onToast={setToast} />
         ) : null}
-        {page === "faucet" ? <FaucetPage pairs={pairs} account={account} provider={walletProvider} locked={actionLocked} isSepolia={isSepolia} pushActivity={pushActivity} /> : null}
-        {page === "send" ? <SendPage pairs={allPairs} standaloneTokens={standaloneTokens} account={account} provider={walletProvider} decryptSigner={decryptSigner} locked={actionLocked} isSepolia={isSepolia} pushActivity={pushActivity} onToast={setToast} /> : null}
+        {page === "faucet" ? <FaucetPage pairs={pairs} account={account} provider={walletProvider} locked={actionLocked} isSepolia={isSepolia} onBalancesChanged={() => setBalanceRefreshNonce((nonce) => nonce + 1)} pushActivity={pushActivity} /> : null}
+        {page === "send" ? <SendPage pairs={allPairs} standaloneTokens={standaloneTokens} account={account} provider={walletProvider} decryptSigner={decryptSigner} locked={actionLocked} isSepolia={isSepolia} onBalancesChanged={() => setBalanceRefreshNonce((nonce) => nonce + 1)} pushActivity={pushActivity} onToast={setToast} /> : null}
         {page === "activity" ? <ActivityPage items={activity} /> : null}
       </main>
       {toast ? <div className="toast"><Check size={15} />{toast}</div> : null}
@@ -463,6 +464,7 @@ function Dashboard({
   decryptSigner,
   actionLocked,
   isSepolia,
+  refreshNonce,
   onNavigate,
   onNavigateFlow,
   pushActivity,
@@ -479,6 +481,7 @@ function Dashboard({
   decryptSigner?: TypedDataSigner;
   actionLocked: boolean;
   isSepolia: boolean;
+  refreshNonce: number;
   onNavigate: (page: Page) => void;
   onNavigateFlow: (intent: Omit<FlowIntent, "nonce">) => void;
   pushActivity: (item: Omit<ActivityItem, "id" | "createdAt" | "chainId" | "account">) => void;
@@ -571,10 +574,11 @@ function Dashboard({
               actionLocked={actionLocked}
               prices={prices}
               pushActivity={pushActivity}
-              onToast={onToast}
-              onSnapshot={(snapshot) => updateSnapshot(row.id, snapshot)}
-              onOpen={() => setSelectedRowId(row.id)}
-            />
+            onToast={onToast}
+            onSnapshot={(snapshot) => updateSnapshot(row.id, snapshot)}
+            refreshNonce={refreshNonce}
+            onOpen={() => setSelectedRowId(row.id)}
+          />
           ))}
         </div>
         <div className="wallet-actions">
@@ -629,6 +633,7 @@ function WalletAssetRow({
   pushActivity,
   onToast,
   onSnapshot,
+  refreshNonce,
   onOpen
 }: {
   row: DashboardRow;
@@ -640,6 +645,7 @@ function WalletAssetRow({
   pushActivity: (item: Omit<ActivityItem, "id" | "createdAt" | "chainId" | "account">) => void;
   onToast: (message: string) => void;
   onSnapshot: (snapshot: WalletAssetSnapshot) => void;
+  refreshNonce: number;
   onOpen: () => void;
 }) {
   const [publicBalance, setPublicBalance] = useState<bigint>();
@@ -693,7 +699,7 @@ function WalletAssetRow({
 
   useEffect(() => {
     void refreshBalances();
-  }, [account, row.id]);
+  }, [account, row.id, refreshNonce]);
 
   useEffect(() => {
     onSnapshot({
@@ -1460,6 +1466,7 @@ function TokenDropdown({
     };
   }, [open]);
   const dropdownClassName = ["token-dropdown", fullWidth ? "full" : "", open ? "open" : ""].filter(Boolean).join(" ");
+  const selectedAddressLabel = selected ? tokenDropdownAddressLabel(selected) : "";
   return (
     <div className={dropdownClassName} onClick={(event) => event.stopPropagation()}>
       <button
@@ -1473,7 +1480,10 @@ function TokenDropdown({
         {selected ? (
           <>
             <TokenAvatar token={selected.token} confidential={selected.confidential} underlying={selected.underlying} />
-            <span>{selected.token.symbol}</span>
+            <span className="trigger-meta">
+              <span>{selected.token.symbol}</span>
+              <small>{selectedAddressLabel}</small>
+            </span>
           </>
         ) : (
           <span>{placeholder ?? "Select token"}</span>
@@ -1498,6 +1508,7 @@ function TokenDropdown({
               <span className="opt-meta">
                 <span>{option.token.symbol}</span>
                 <small>{option.token.name}</small>
+                <small className="addr">{tokenDropdownAddressLabel(option)}</small>
               </span>
               {option.balance != null ? <span className="opt-bal">{option.encrypted ? "****" : option.balance}</span> : null}
             </button>
@@ -1506,6 +1517,14 @@ function TokenDropdown({
       ) : null}
     </div>
   );
+}
+
+function tokenDropdownAddressLabel(option: TokenDropdownOption) {
+  const tokenAddress = shortAddress(option.token.address);
+  if (option.confidential && option.underlying) {
+    return `cToken ${tokenAddress} · underlying ${shortAddress(option.underlying.address)}`;
+  }
+  return tokenAddress;
 }
 
 function FlowPairSelect({ pairs, value, setValue, side }: { pairs: TokenWrapperPair[]; value: string; setValue: (value: string) => void; side: "underlying" | "confidential" }) {
@@ -1540,6 +1559,7 @@ function UnifiedWrapPage({
   pending,
   savePending,
   onCreateWrapper,
+  onBalancesChanged,
   pushActivity,
   onToast
 }: {
@@ -1553,6 +1573,7 @@ function UnifiedWrapPage({
   pending: PendingUnwrap[];
   savePending: (items: PendingUnwrap[]) => void;
   onCreateWrapper: () => void;
+  onBalancesChanged: () => void;
   pushActivity: (item: Omit<ActivityItem, "id" | "createdAt" | "chainId" | "account">) => void;
   onToast: (message: string) => void;
 }) {
@@ -1680,6 +1701,8 @@ function UnifiedWrapPage({
       const txHash = await wrapToken(provider, pair.confidential.address, account, parsed);
       pushActivity({ type: "wrap", status: "pending", title: `Shield ${pair.underlying.symbol}`, detail: `${amount} ${pair.underlying.symbol}`, txHash });
       await waitForTransactionSuccess(txHash);
+      setConfidentialHandle(undefined);
+      onBalancesChanged();
       pushActivity({ type: "wrap", status: "success", title: `Shielded ${pair.underlying.symbol}`, detail: `${amount} ${pair.underlying.symbol}`, txHash, tokenSymbol: pair.confidential.symbol, tokenIconUrl: pair.confidential.iconUrl ?? pair.underlying.iconUrl, tokenConfidential: true, amount: `${outputAmount} ${pair.confidential.symbol}` });
       setShieldResult({
         kind: "shield",
@@ -1725,6 +1748,7 @@ function UnifiedWrapPage({
       savePending([item, ...pending]);
       pushActivity({ type: "unwrap-request", status: "pending", title: "Request unshield", txHash: result.txHash });
       await waitForTransactionSuccess(result.txHash);
+      onBalancesChanged();
       setShieldResult({
         kind: "unshield-request",
         txHash: result.txHash,
@@ -1750,6 +1774,7 @@ function UnifiedWrapPage({
       const clearValue = BigInt(item.clearValue ?? "0");
       const txHash = await finalizeUnwrap(provider, item.wrapper, account, item.requestId, clearValue, proof as Hex);
       await waitForTransactionSuccess(txHash);
+      onBalancesChanged();
       const next = pending.map((entry) => (entry.requestId === item.requestId ? { ...entry, status: "finalized" as const } : entry));
       savePending(next);
       const resultPair = pairs.find((entry) => entry.confidential.address.toLowerCase() === item.wrapper.toLowerCase());
@@ -2067,6 +2092,7 @@ function SendPage({
   decryptSigner,
   locked,
   isSepolia,
+  onBalancesChanged,
   pushActivity,
   onToast
 }: {
@@ -2077,6 +2103,7 @@ function SendPage({
   decryptSigner?: TypedDataSigner;
   locked: boolean;
   isSepolia: boolean;
+  onBalancesChanged: () => void;
   pushActivity: (item: Omit<ActivityItem, "id" | "createdAt" | "chainId" | "account">) => void;
   onToast: (message: string) => void;
 }) {
@@ -2183,6 +2210,8 @@ function SendPage({
       const encrypted = await createEncryptedInput(provider, selected.address, account, parsed);
       const txHash = await confidentialTransfer(provider, selected.address, account, getAddress(recipient), encrypted.handle, encrypted.proof);
       pushActivity({ type: "send", status: "pending", title: `Send ${selected.metadata.symbol}`, detail: `${amount} ${selected.metadata.symbol} → ${shortAddress(recipient)}`, txHash, tokenSymbol: selected.metadata.symbol, tokenIconUrl: selected.metadata.iconUrl ?? selected.underlying?.iconUrl, tokenConfidential: true, amount: `${amount} ${selected.metadata.symbol}` });
+      await waitForTransactionSuccess(txHash);
+      onBalancesChanged();
       setAmount("");
       setRecipient("");
     } catch (err) {
@@ -2239,6 +2268,7 @@ function FaucetPage({
   provider,
   locked,
   isSepolia,
+  onBalancesChanged,
   pushActivity
 }: {
   pairs: TokenWrapperPair[];
@@ -2246,6 +2276,7 @@ function FaucetPage({
   provider?: EthereumProvider;
   locked: boolean;
   isSepolia: boolean;
+  onBalancesChanged: () => void;
   pushActivity: (item: Omit<ActivityItem, "id" | "createdAt" | "chainId" | "account">) => void;
 }) {
   const faucetPairs = pairs.filter((pair) => pair.supportsFaucet);
@@ -2268,6 +2299,8 @@ function FaucetPage({
     try {
       const txHash = await mintFaucet(provider, pair.underlying.address, account, parsed);
       pushActivity({ type: "faucet", status: "pending", title: `Claim ${pair.underlying.symbol}`, detail: `${amount} tokens`, txHash, tokenSymbol: pair.underlying.symbol, tokenIconUrl: pair.underlying.iconUrl, amount: `${amount} ${pair.underlying.symbol}` });
+      await waitForTransactionSuccess(txHash);
+      onBalancesChanged();
     } catch (error) {
       const message = walletErrorMessage(error);
       setError(message);
