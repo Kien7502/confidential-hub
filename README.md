@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="frontend/public/favicon.png" alt="Confidential Hub logo" width="128" />
+</p>
+
 # Confidential Hub
 
 Confidential Hub is a production-oriented Sepolia dApp for the Zama Developer Program Season 3 Confidential Wrapper Registry bounty. It turns the Sepolia Wrappers Registry into a wallet experience for browsing official ERC-20 to ERC-7984 pairs, claiming faucet tokens, shielding, unshielding, and decrypting confidential balances.
