@@ -37,3 +37,4 @@
 - Added cToken address labels to token dropdowns and kept multiple wrappers for the same underlying token visible in Shield selection.
 - Fixed detail-panel Shield/Unshield navigation to carry the selected cToken wrapper address so duplicate wrappers for one underlying token open the correct flow option.
 - Added custom token removal controls in asset details and the add-token modal, removing only wallet-local custom entries.
+- Updated detail-panel decrypt to refresh the modal balance and dashboard row immediately after user-decrypt writes the cache.

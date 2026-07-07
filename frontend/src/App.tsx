@@ -495,6 +495,7 @@ function Dashboard({
   const [showEmptyAssets, setShowEmptyAssets] = useState(false);
   const [assetTab, setAssetTab] = useState<"all" | "custom" | "official">("all");
   const [assetSnapshots, setAssetSnapshots] = useState<Record<string, WalletAssetSnapshot>>({});
+  const [localRefreshNonce, setLocalRefreshNonce] = useState(0);
   const official = pairs.filter((pair) => pair.source === "official");
   const registryCustom = pairs.filter((pair) => pair.source !== "official");
   const customRows = [...buildOfficialRows(registryCustom), ...buildUserRows(addedTokens, addedPairs, standaloneTokens)];
@@ -552,6 +553,26 @@ function Dashboard({
       return { ...current, [rowId]: snapshot };
     });
   }
+
+  function updateDecryptedSnapshot(row: DashboardRow, value: string) {
+    if (!row.confidential) return;
+    const parsedValue = parseCachedBigInt(value);
+    setAssetSnapshots((current) => {
+      const previous = current[row.id];
+      return {
+        ...current,
+        [row.id]: {
+          publicBalance: previous?.publicBalance,
+          confidentialHandle: previous?.confidentialHandle,
+          confidentialDisplay: `${formatTokenAmount(parsedValue, row.confidential!.decimals)} ${row.confidential!.symbol}`,
+          confidentialValue: parsedValue,
+          status: previous?.status ?? "ready"
+        }
+      };
+    });
+    setLocalRefreshNonce((nonce) => nonce + 1);
+  }
+
   return (
     <div className="wallet-screen">
       <div className="balance-row">
@@ -598,7 +619,7 @@ function Dashboard({
               pushActivity={pushActivity}
             onToast={onToast}
             onSnapshot={(snapshot) => updateSnapshot(row.id, snapshot)}
-            refreshNonce={refreshNonce}
+            refreshNonce={refreshNonce + localRefreshNonce}
             onOpen={() => setSelectedRowId(row.id)}
           />
           ))}
@@ -638,6 +659,7 @@ function Dashboard({
           }}
           canRemoveCustomAsset={customTokenIdsForRow(selectedRow).length > 0}
           onRemoveCustomAsset={() => removeCustomAsset(selectedRow)}
+          onBalanceDecrypted={(value) => updateDecryptedSnapshot(selectedRow, value)}
         />
       ) : null}
       {createRequest ? (
@@ -722,6 +744,7 @@ function WalletAssetRow({
   }
 
   useEffect(() => {
+    setDecryptCacheVersion((version) => version + 1);
     void refreshBalances();
   }, [account, row.id, refreshNonce]);
 
@@ -833,7 +856,8 @@ function AssetDetailModal({
   onNavigateFlow,
   onSend,
   canRemoveCustomAsset,
-  onRemoveCustomAsset
+  onRemoveCustomAsset,
+  onBalanceDecrypted
 }: {
   row: DashboardRow;
   snapshot?: WalletAssetSnapshot;
@@ -850,6 +874,7 @@ function AssetDetailModal({
   onSend: () => void;
   canRemoveCustomAsset: boolean;
   onRemoveCustomAsset: () => void;
+  onBalanceDecrypted: (value: string) => void;
 }) {
   const token = row.underlying ?? row.confidential;
   const publicBalance = row.underlying ? `${formatTokenAmount(snapshot?.publicBalance, row.underlying.decimals)} ${row.underlying.symbol}` : "-";
@@ -878,6 +903,7 @@ function AssetDetailModal({
       const next = readDecryptCache();
       next[cacheKey(SEPOLIA_CHAIN_ID, account, confidential.address, handle)] = { value, lastDecryptedAt: Date.now() };
       writeDecryptCache(next);
+      onBalanceDecrypted(value);
       onToast(`${confidential.symbol} balance decrypted`);
     } catch (error) {
       const detail = error instanceof Error ? error.message : String(error);
