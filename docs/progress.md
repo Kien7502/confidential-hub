@@ -28,3 +28,8 @@
 - Added Zama challenge and official documentation links to README.
 - Expanded registry sourcing notes with the Zama Sepolia Wrappers Registry URL and official cTokenMock address source.
 - Removed the old README constraints section for the final public submission copy.
+
+## User cToken Row Pairing
+- Updated user-added cToken rows to display the detected underlying ERC20 token together with the confidential wrapper.
+- Added test coverage so a pasted ERC7984 wrapper appears as a complete Shield/Unshield pair.
+- Fixed Shield/Unshield pair selection so stale pair ids are ignored when switching between modes with different token-side option lists.

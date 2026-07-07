@@ -99,14 +99,16 @@ export function buildUserRows(addedTokens: AddedToken[], addedPairs: TokenWrappe
     const wrapperPair = addedPairs.find((pair) => pair.id === token.id || sameAddress(pair.confidential.address, token.address));
     if (!wrapperPair || used.has(wrapperPair.id)) continue;
     const matchingUnderlying = addedPairs.find((pair) => pair.id !== wrapperPair.id && sameAddress(pair.underlying.address, wrapperPair.underlying.address) && !hasToken(pair.confidential));
+    const underlying = matchingUnderlying?.underlying ?? wrapperPair.underlying;
+    const complete = hasToken(underlying) && hasToken(wrapperPair.confidential);
     rows.push({
       id: `user-ctoken-${token.id}`,
       pair: wrapperPair,
-      underlying: matchingUnderlying?.underlying,
+      underlying,
       confidential: wrapperPair.confidential,
       source: "user",
-      complete: Boolean(matchingUnderlying),
-      canShield: Boolean(matchingUnderlying) && pairIsActionable(wrapperPair),
+      complete,
+      canShield: complete && pairIsActionable(wrapperPair),
       canUnshield: pairIsActionable(wrapperPair)
     });
   }

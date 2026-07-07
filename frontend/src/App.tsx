@@ -1575,7 +1575,8 @@ function UnifiedWrapPage({
   const unshieldOptions = uniqueUnshieldPairs(pairs);
   const options = mode === "shield" ? shieldOptions : unshieldOptions;
   const requestedPairId = findFlowPairId(options, intent, mode === "shield" ? "underlying" : "confidential");
-  const selectedPairId = pairId || requestedPairId || options[0]?.id || "";
+  const pairIdAvailable = Boolean(pairId && options.some((item) => item.id === pairId));
+  const selectedPairId = pairIdAvailable ? pairId : requestedPairId || options[0]?.id || "";
   const pair = options.find((item) => item.id === selectedPairId) ?? options[0];
   const actionable = pairIsActionable(pair);
   const inputToken = mode === "shield" ? pair?.underlying : pair?.confidential;
@@ -1615,8 +1616,14 @@ function UnifiedWrapPage({
   }, [requestedPairId, intent?.nonce]);
 
   useEffect(() => {
-    if (!pairId && options[0]) setPairId(options[0].id);
-  }, [mode, pairId, options.length]);
+    if (!options.length) {
+      if (pairId) setPairId("");
+      return;
+    }
+    if (!pairId || !options.some((item) => item.id === pairId)) {
+      setPairId(requestedPairId || options[0].id);
+    }
+  }, [mode, pairId, requestedPairId, options]);
 
   useEffect(() => {
     if (!account || !pair) return;

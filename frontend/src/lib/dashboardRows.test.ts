@@ -43,7 +43,7 @@ describe("dashboard user rows", () => {
     expect(rows[0].canUnshield).toBe(false);
   });
 
-  it("keeps a wrapper cToken on the right and enables unshield for user wrappers", () => {
+  it("shows a user-added wrapper cToken with its detected underlying token", () => {
     const underlying = token("0x2222222222222222222222222222222222222222", "VIP");
     const confidential = token("0x3333333333333333333333333333333333333333", "cVIP");
     const rows = buildUserRows(
@@ -53,9 +53,10 @@ describe("dashboard user rows", () => {
     );
 
     expect(rows).toHaveLength(1);
-    expect(rows[0].underlying).toBeUndefined();
+    expect(rows[0].underlying?.symbol).toBe("VIP");
     expect(rows[0].confidential?.symbol).toBe("cVIP");
-    expect(rows[0].canShield).toBe(false);
+    expect(rows[0].complete).toBe(true);
+    expect(rows[0].canShield).toBe(true);
     expect(rows[0].canUnshield).toBe(true);
     expect(pairIsActionable(rows[0].pair)).toBe(true);
   });
