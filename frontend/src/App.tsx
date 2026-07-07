@@ -514,6 +514,7 @@ function Dashboard({
   const visibleRows = showEmptyAssets ? activeRows : activeRows.filter((row) => !assetIsEmpty(row, assetSnapshots[row.id]));
   const selectedRow = walletRows.find((row) => row.id === selectedRowId);
   const totalValue = walletRows.reduce((sum, row) => sum + (assetValue(row, assetSnapshots[row.id], prices) ?? 0), 0);
+  const totalHasMaskedBalance = walletRows.some((row) => rowHasMaskedConfidentialBalance(row, assetSnapshots[row.id]));
   const shieldableValue = walletRows.reduce((sum, row) => sum + (publicAssetValue(row, assetSnapshots[row.id], prices) ?? 0), 0);
   const displayRows = visibleRows.length > 0 ? visibleRows : activeRows.slice(0, 1);
   const shieldedCount = walletRows.filter((row) => row.confidential).length;
@@ -579,7 +580,7 @@ function Dashboard({
         <div className="balance-card">
           <div>
             <span className="label">Total balance</span>
-            <div className="amount">{formatFiat(totalValue)}</div>
+            <div className={totalHasMaskedBalance ? "amount masked-total" : "amount"}>{totalHasMaskedBalance ? "*******" : formatFiat(totalValue)}</div>
             <p className="meta">Across <b>{walletRows.length} assets</b> · <b>{shieldedCount} shielded</b></p>
           </div>
           <span className="balance-icon"><Shield size={22} /></span>
@@ -954,7 +955,10 @@ function AssetDetailModal({
           {row.confidential ? (
             <div className="balance-detail">
               <div className="left">
-                <span className="lbl"><Lock size={12} />Confidential · {row.confidential.symbol}</span>
+                <span className="token-state-line">
+                  <strong>{row.confidential.symbol}</strong>
+                  <span className="token-state-badge confidential"><Lock size={12} />Confidential</span>
+                </span>
                 <span className={confidentialBalance === "encrypted" ? "val masked" : "val"}>{confidentialBalance === "encrypted" && row.confidential ? `**** ${row.confidential.symbol}` : confidentialBalance}</span>
                 <span className="lbl">{formatFiat(confidentialAssetValue(row, snapshot, prices))}</span>
               </div>
@@ -966,7 +970,10 @@ function AssetDetailModal({
           {row.underlying ? (
             <div className="balance-detail">
               <div className="left">
-                <span className="lbl">Standard · {row.underlying.symbol}</span>
+                <span className="token-state-line">
+                  <strong>{row.underlying.symbol}</strong>
+                  <span className="token-state-badge standard">Standard</span>
+                </span>
                 <span className="val">{publicBalance}</span>
                 <span className="lbl">{formatFiat(publicAssetValue(row, snapshot, prices))}</span>
               </div>
@@ -1030,6 +1037,15 @@ function assetValue(row: DashboardRow, snapshot: WalletAssetSnapshot | undefined
   const confidentialValue = confidentialAssetValue(row, snapshot, prices);
   if (publicValue === undefined && confidentialValue === undefined) return undefined;
   return (publicValue ?? 0) + (confidentialValue ?? 0);
+}
+
+function rowHasMaskedConfidentialBalance(row: DashboardRow, snapshot: WalletAssetSnapshot | undefined) {
+  return Boolean(
+    row.confidential &&
+      snapshot?.confidentialDisplay === "encrypted" &&
+      snapshot.confidentialHandle &&
+      !isZeroConfidentialHandle(snapshot.confidentialHandle)
+  );
 }
 
 function assetIsEmpty(row: DashboardRow, snapshot?: WalletAssetSnapshot) {
