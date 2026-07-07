@@ -1,30 +1,28 @@
-# Ghi chú docs Zama cần dùng
+# Zama Documentation Notes
 
-Nguồn đã đọc:
+Sources reviewed:
 - Challenge: `docs/challenge.md`
-- Registry: https://docs.zama.org/protocol/protocol-apps/confidential-tokens/wrapper-registry.md
-- Confidential wrapper: https://docs.zama.org/protocol/protocol-apps/confidential-tokens/confidential-wrapper.md
+- Wrapper Registry: https://docs.zama.org/protocol/protocol-apps/confidential-tokens/wrapper-registry.md
+- Confidential Wrapper: https://docs.zama.org/protocol/protocol-apps/confidential-tokens/confidential-wrapper.md
 - Sepolia addresses: https://docs.zama.org/protocol/protocol-apps/addresses/testnet/sepolia.md
-- Sitemap/SDK index: https://docs.zama.org/protocol/sitemap.md
-- Relayer SDK README: https://github.com/zama-ai/relayer-sdk
+- SDK sitemap: https://docs.zama.org/protocol/sitemap.md
+- Relayer SDK: https://github.com/zama-ai/relayer-sdk
 
-## Mục tiêu challenge
+## Challenge Goal
 
-Ứng dụng cần là web dApp public, chạy Sepolia, cho phép browse registry, faucet token mock, wrap, unwrap, decrypt balance ERC-7984 của ví đang kết nối và decrypt token ERC-7984 bất kỳ bằng paste address hoặc auto-detect.
+Confidential Hub is a public Sepolia dApp for the Zama Confidential Wrapper Registry bounty. It must let users browse official wrapper pairs, claim mock faucet tokens, wrap ERC-20 tokens into ERC-7984 confidential tokens, unwrap back to ERC-20, decrypt connected-wallet balances, and decrypt arbitrary pasted ERC-7984 tokens.
 
-Registry phải dùng hybrid source:
-- Nguồn chính: official onchain Wrappers Registry.
-- Nguồn phụ: local config cho custom/dev-only pairs.
+Registry data uses a hybrid source model:
+- Primary source: the onchain Sepolia Wrappers Registry.
+- Secondary source: local config for custom or development-only pairs.
 
-README cuối cùng phải có live URL, supported networks, cách lấy registry, cách thêm pair mới, ví dụ thêm pair và deployment scripts.
+The README must cover the live URL, supported networks, registry sourcing, how to add a new pair, and deployment scripts.
 
-## Sepolia addresses quan trọng
+## Sepolia Addresses
 
-Wrappers Registry:
+Wrappers Registry: `0x2f0750Bbb0A246059d80e94c454586a7F27a128e`
 
-`0x2f0750Bbb0A246059d80e94c454586a7F27a128e`
-
-Official confidential wrappers trên Sepolia:
+Official confidential wrappers on Sepolia:
 
 | Name | Symbol | Wrapper | Underlying | Faucet |
 | --- | --- | --- | --- | --- |
@@ -37,11 +35,11 @@ Official confidential wrappers trên Sepolia:
 | Confidential XAUt (Mock) | `cXAUtMock` | `0xe4FcF848739845BC81Dee1d5352cf3844F0a60C7` | `0x24377AE4AA0C45ecEe71225007f17c5D423dd940` | Public mint, 1M/call |
 | Confidential tGBP | `ctGBP` | `0x167DC962808B32CFFFc7e14B5018c0bE06A3A208` | `0xf6Ef9ADB61A48E29E36bc873070A46A3D2667ff3` | Restricted |
 
-Ghi chú faucet: các mocked wrapper dùng underlying ERC-20 test token có hàm `mint(address to, uint256 amount)` public, giới hạn 1,000,000 token mỗi lần gọi.
+Official mock underlyings expose `mint(address to, uint256 amount)` with a documented 1,000,000 token per-call limit.
 
-## Registry flow
+## Registry Flow
 
-Các pair được lưu dạng:
+Pairs are stored as:
 
 ```solidity
 struct TokenWrapperPair {
@@ -51,64 +49,46 @@ struct TokenWrapperPair {
 }
 ```
 
-Hàm cần dùng:
+Required reads:
 
 ```solidity
 getConfidentialTokenAddress(address token) returns (bool isValid, address confidentialToken)
 getTokenAddress(address confidentialToken) returns (bool isValid, address token)
 isConfidentialTokenValid(address confidentialToken) returns (bool)
-getTokenConfidentialTokenPairs() returns (TokenWrapperPair[])
+getTokenConfidentialTokenPairs() returns (TokenWrapperPair[] memory)
 getTokenConfidentialTokenPairsLength() returns (uint256)
-getTokenConfidentialTokenPair(uint256 index) returns (TokenWrapperPair)
-getTokenConfidentialTokenPairsSlice(uint256 fromIndex, uint256 toIndex) returns (TokenWrapperPair[])
+getTokenConfidentialTokenPair(uint256 index) returns (TokenWrapperPair memory)
+getTokenConfidentialTokenPairsSlice(uint256 fromIndex, uint256 toIndex) returns (TokenWrapperPair[] memory)
 ```
 
-Rule quan trọng: địa chỉ wrapper khác zero vẫn có thể đã bị revoke, nên UI/action phải kiểm tra `isValid`.
+Important rule: a non-zero wrapper mapping can still be revoked. The UI and transaction flows must check `isValid` before offering wrap or unwrap actions.
 
-## Wrap/unwrap flow
+## Wrap And Unwrap Flow
 
 Wrap:
-- Trước khi wrap phải approve wrapper contract trên underlying ERC-20.
-- Gọi `wrapper.wrap(to, amount)`.
-- `amount` dùng decimals của underlying token.
-- Wrapper có giới hạn decimals confidential tối đa hiện tại là 6, nên amount có thể bị round down và phần dư được refund.
+- Check ERC-20 allowance for the wrapper before sending `wrap`.
+- If allowance is insufficient, send `approve` and wait for the receipt.
+- Call `wrapper.wrap(to, amount)` with the underlying ERC-20 decimals.
+- Wrapper confidential decimals are capped at 6, so small amounts can round down.
 
 Unwrap:
-- Đây là flow async 2 bước.
-- Bước 1: request unwrap bằng `unwrap(...)`, burn encrypted amount và emit `UnwrapRequested(receiver, unwrapRequestId, amount)`.
-- Bước 2: public decrypt encrypted amount, lấy cleartext/proof, rồi gọi `finalizeUnwrap(unwrapRequestId, unwrapAmountCleartext, decryptionProof)`.
-- Cần lưu `unwrapRequestId` để resume/finalize.
+- Request unwrap with an encrypted amount and input proof.
+- Store the `UnwrapRequested` request id.
+- Finalize later with the cleartext amount and decryption proof.
 
-## User decryption / SDK
+## User Decryption / SDK
 
-SDK docs hiện có các hook/API phù hợp:
+Relevant SDK surfaces:
 - `useConfidentialBalance`, `useConfidentialBalances`
 - `useGrantPermit`, `useHasPermit`, `useDecryptValues`
 - `useShield`, `useUnshield`, `useResumeUnshield`
 - `useWrapperDiscovery`, `useTokenPairsRegistry`, `useListPairs`
 - `useUnderlyingAllowance`, `useMetadata`
 
-EIP-712 user decryption phải có signed permit trước khi decrypt. UI không nên tự bật query decrypt nếu chưa có permit, tránh bật wallet prompt bất ngờ.
+EIP-712 user decryption requires a signed permit before decrypting confidential values. The UI should not trigger wallet prompts automatically; decrypt is a user action.
 
-Legacy relayer SDK repo ghi package cài đặt:
+Legacy relayer SDK install:
 
 ```bash
 npm install @zama-fhe/relayer-sdk
 ```
-
-## UI từ wireframe và yêu cầu dev
-
-Wireframe có:
-- Sidebar `Confidential Hub`.
-- Nav `Dash Board`, `Faucet`.
-- Dashboard title lớn.
-- Section `Your Token` và `Official Token`.
-- Mỗi row chia ERC20 bên trái, cToken bên phải, action wrap/unwrap ở giữa.
-- Nút `Decrypt` cạnh balance cToken.
-- Row dấu cộng để add token.
-
-Yêu cầu thêm:
-- Tông icon giống Zama, dùng yellow accent/black/gray.
-- Có add token 3 loại: ERC20, CToken thường, CToken xịn.
-- Có create token 2 loại: ERC20, CToken xịn.
-- Có cache/mapping byte32 balance handle để tránh phải decrypt lại mỗi lần vào app.

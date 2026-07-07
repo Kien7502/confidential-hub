@@ -5,6 +5,7 @@ dist/
 *.err.log
 .env.local
 .env.*.local
+.env
 !.env.example
 !.env.test.local.example
 .vercel/
@@ -16,8 +17,10 @@ frontend/vite-dev*.log
 frontend/vite-dev*.err.log
 frontend/.env.local
 frontend/.env.*.local
+frontend/.env
 !frontend/.env.example
 !frontend/.env.test.local.example
+frontend/DESIGN.md-*/
 
 contract/node_modules/
 contract/artifacts/
