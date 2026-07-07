@@ -20,6 +20,7 @@ import {
   RefreshCw,
   Send,
   Shield,
+  Trash2,
   Wallet,
   X
 } from "lucide-react";
@@ -515,6 +516,27 @@ function Dashboard({
   const shieldableValue = walletRows.reduce((sum, row) => sum + (publicAssetValue(row, assetSnapshots[row.id], prices) ?? 0), 0);
   const displayRows = visibleRows.length > 0 ? visibleRows : activeRows.slice(0, 1);
   const shieldedCount = walletRows.filter((row) => row.confidential).length;
+
+  function customTokenIdsForRow(row: DashboardRow) {
+    if (row.source !== "user") return [];
+    const addresses = new Set(
+      [row.underlying?.address, row.confidential?.address]
+        .filter(Boolean)
+        .map((address) => address!.toLowerCase())
+    );
+    return addedTokens.filter((token) => addresses.has(token.address.toLowerCase())).map((token) => token.id);
+  }
+
+  function removeCustomAsset(row: DashboardRow) {
+    const ids = customTokenIdsForRow(row);
+    if (!ids.length) return;
+    const removeIds = new Set(ids);
+    saveTokens(addedTokens.filter((token) => !removeIds.has(token.id)));
+    setSelectedRowId(undefined);
+    onToast("Custom asset removed");
+    pushActivity({ type: "add-token", status: "info", title: "Removed custom asset", detail: assetSymbol(row) });
+  }
+
   function updateSnapshot(rowId: string, snapshot: WalletAssetSnapshot) {
     setAssetSnapshots((current) => {
       const previous = current[rowId];
@@ -614,6 +636,8 @@ function Dashboard({
             setSelectedRowId(undefined);
             onNavigate("send");
           }}
+          canRemoveCustomAsset={customTokenIdsForRow(selectedRow).length > 0}
+          onRemoveCustomAsset={() => removeCustomAsset(selectedRow)}
         />
       ) : null}
       {createRequest ? (
@@ -807,7 +831,9 @@ function AssetDetailModal({
   onToast,
   onClose,
   onNavigateFlow,
-  onSend
+  onSend,
+  canRemoveCustomAsset,
+  onRemoveCustomAsset
 }: {
   row: DashboardRow;
   snapshot?: WalletAssetSnapshot;
@@ -822,6 +848,8 @@ function AssetDetailModal({
   onClose: () => void;
   onNavigateFlow: (intent: Omit<FlowIntent, "nonce">) => void;
   onSend: () => void;
+  canRemoveCustomAsset: boolean;
+  onRemoveCustomAsset: () => void;
 }) {
   const token = row.underlying ?? row.confidential;
   const publicBalance = row.underlying ? `${formatTokenAmount(snapshot?.publicBalance, row.underlying.decimals)} ${row.underlying.symbol}` : "-";
@@ -926,6 +954,12 @@ function AssetDetailModal({
           <Send size={16} />
           Send
         </button>
+        {canRemoveCustomAsset ? (
+          <button className="btn danger ghost block modal-remove" onClick={onRemoveCustomAsset}>
+            <Trash2 size={16} />
+            Remove custom asset
+          </button>
+        ) : null}
       </div>
     </div>
   );
@@ -1164,6 +1198,11 @@ function CreateTokenModal({
     onClose();
   }
 
+  function removeToken(token: AddedToken) {
+    saveTokens(addedTokens.filter((item) => item.id !== token.id));
+    pushActivity({ type: "add-token", status: "info", title: "Removed custom token", detail: `${token.label || shortAddress(token.address)} · ${shortAddress(token.address)}` });
+  }
+
   useEffect(() => {
     setAddPreview(undefined);
     setAddPreviewError("");
@@ -1284,7 +1323,12 @@ function CreateTokenModal({
             {addedTokens.length ? (
               <div className="token-chips token-modal-chips" aria-label="Added tokens">
                 {addedTokens.map((token) => (
-                  <span key={token.id}>{token.label || shortAddress(token.address)} · {token.category}</span>
+                  <span key={token.id} className="token-chip removable">
+                    <span>{token.label || shortAddress(token.address)} · {token.category}</span>
+                    <button type="button" aria-label={`Remove ${token.label || token.address}`} onClick={() => removeToken(token)}>
+                      <Trash2 size={13} />
+                    </button>
+                  </span>
                 ))}
               </div>
             ) : null}

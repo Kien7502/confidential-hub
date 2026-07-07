@@ -292,6 +292,16 @@ code, pre, .mono { font-family: var(--mono); }
   background: rgba(255, 255, 255, 0.08);
 }
 
+.btn.danger {
+  border-color: rgba(184, 72, 88, 0.28);
+  color: var(--danger-fg);
+}
+
+.btn.danger:hover:not(:disabled) {
+  border-color: rgba(184, 72, 88, 0.44);
+  background: rgba(184, 72, 88, 0.08);
+}
+
 .btn.icon {
   width: 44px;
   min-width: 44px;
@@ -1961,6 +1971,7 @@ code, pre, .mono { font-family: var(--mono); }
 
 .modal-encrypted,
 .modal-send { margin-top: 16px; }
+.modal-remove { margin-top: 10px; }
 
 /* ---------- Form fields ---------- */
 .field { display: grid; gap: 8px; }
@@ -2155,7 +2166,7 @@ textarea.input {
   gap: 6px;
 }
 
-.token-chips span {
+.token-chips > span {
   border: 1px solid var(--border);
   border-radius: var(--r-pill);
   padding: 4px 10px;
@@ -2164,12 +2175,36 @@ textarea.input {
   background: rgba(255, 255, 255, 0.03);
 }
 
-.token-modal-chips span {
+.token-modal-chips > span {
   border-color: rgba(185, 177, 159, 0.24);
   background: rgba(255, 255, 255, 0.76);
   color: var(--fg);
   font-size: 11px;
   font-weight: 650;
+}
+
+.token-chip.removable {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding-right: 4px;
+}
+
+.token-chip.removable button {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border: 1px solid rgba(184, 72, 88, 0.22);
+  border-radius: var(--r-pill);
+  background: rgba(184, 72, 88, 0.06);
+  color: var(--danger-fg);
+  cursor: pointer;
+}
+
+.token-chip.removable button:hover {
+  border-color: rgba(184, 72, 88, 0.42);
+  background: rgba(184, 72, 88, 0.12);
 }
 
 /* ---------- Activity ---------- */
