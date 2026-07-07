@@ -35,3 +35,4 @@
 - Fixed Shield/Unshield pair selection so stale pair ids are ignored when switching between modes with different token-side option lists.
 - Added transaction-driven balance refresh after shield, unshield, faucet, and send actions so custom cToken rows do not keep stale zero confidential handles after wrapping.
 - Added cToken address labels to token dropdowns and kept multiple wrappers for the same underlying token visible in Shield selection.
+- Fixed detail-panel Shield/Unshield navigation to carry the selected cToken wrapper address so duplicate wrappers for one underlying token open the correct flow option.

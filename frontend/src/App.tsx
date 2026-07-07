@@ -49,7 +49,7 @@ import {
 import type { ActivityItem, AddedToken, PendingUnwrap, StandaloneConfidentialToken, TokenMetadata, TokenWrapperPair } from "./types";
 
 type Page = "dashboard" | "shield" | "unshield" | "faucet" | "send" | "activity";
-type FlowIntent = { page: "shield" | "unshield"; pairId?: string; tokenAddress?: Address; nonce: number };
+type FlowIntent = { page: "shield" | "unshield"; pairId?: string; tokenAddress?: Address; confidentialAddress?: Address; nonce: number };
 type FlowStepState = "waiting" | "active" | "done" | "skipped" | "error";
 type ShieldStepId = "allowance" | "wrap";
 type ShieldResult = {
@@ -905,7 +905,7 @@ function AssetDetailModal({
                 <span className="lbl">{formatFiat(confidentialAssetValue(row, snapshot, prices))}</span>
               </div>
               <div className="right">
-                <button className="btn sm" disabled={actionLocked || !row.canUnshield || !row.pair} onClick={() => row.pair && onNavigateFlow({ page: "unshield", pairId: row.pair.id, tokenAddress: row.confidential?.address })}>Unshield</button>
+                <button className="btn sm" disabled={actionLocked || !row.canUnshield || !row.pair} onClick={() => row.pair && onNavigateFlow({ page: "unshield", pairId: row.pair.id, tokenAddress: row.confidential?.address, confidentialAddress: row.confidential?.address })}>Unshield</button>
               </div>
             </div>
           ) : null}
@@ -917,7 +917,7 @@ function AssetDetailModal({
                 <span className="lbl">{formatFiat(publicAssetValue(row, snapshot, prices))}</span>
               </div>
               <div className="right">
-                <button className="btn primary sm" disabled={actionLocked || !row.canShield || !row.pair} onClick={() => row.pair && onNavigateFlow({ page: "shield", pairId: row.pair.id, tokenAddress: row.underlying?.address })}>Shield</button>
+                <button className="btn primary sm" disabled={actionLocked || !row.canShield || !row.pair} onClick={() => row.pair && onNavigateFlow({ page: "shield", pairId: row.pair.id, tokenAddress: row.underlying?.address, confidentialAddress: row.confidential?.address })}>Shield</button>
               </div>
             </div>
           ) : null}
@@ -1535,6 +1535,10 @@ function FlowPairSelect({ pairs, value, setValue, side }: { pairs: TokenWrapperP
 
 function findFlowPairId(pairs: TokenWrapperPair[], intent: FlowIntent | undefined, side: "underlying" | "confidential") {
   if (!intent) return "";
+  const byConfidentialAddress = intent.confidentialAddress
+    ? pairs.find((item) => item.confidential.address.toLowerCase() === intent.confidentialAddress?.toLowerCase())
+    : undefined;
+  if (byConfidentialAddress) return byConfidentialAddress.id;
   const intended = pairs.find((item) => {
     if (intent.pairId && item.id === intent.pairId) return true;
     if (!intent.tokenAddress) return false;
