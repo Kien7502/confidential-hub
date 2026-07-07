@@ -38,7 +38,7 @@ async function readDecimals(client: PublicClient, address: Address, abi: typeof 
   }
 }
 
-async function metadata(client: PublicClient, address: Address, overrides?: Partial<Omit<TokenMetadata, "address">>): Promise<TokenMetadata> {
+export async function metadata(client: PublicClient, address: Address, overrides?: Partial<Omit<TokenMetadata, "address">>): Promise<TokenMetadata> {
   const fallbackSymbol = `${address.slice(0, 6)}...${address.slice(-4)}`;
   return {
     address,
@@ -147,6 +147,21 @@ export async function readConfidentialHandle(client: PublicClient, token: Addres
 
 export type AddedTokenKind = "wrapper" | "standalone" | "erc20";
 
+export type AddedTokenPreview =
+  | {
+      kind: "erc20";
+      token: TokenMetadata;
+      pairedConfidential?: TokenMetadata;
+      registryValid?: boolean;
+    }
+  | {
+      kind: "wrapper";
+      underlying: TokenMetadata;
+      confidential: TokenMetadata;
+      isValid: boolean;
+      rate: bigint;
+    };
+
 /**
  * Detects the on-chain kind of a token by feature-probing:
  * - `wrapper`: exposes `underlying()` returning a non-zero address (ERC7984ERC20Wrapper).
@@ -163,6 +178,52 @@ export async function detectAddedTokenKind(client: PublicClient, address: Addres
   if (confidential !== undefined) return "standalone";
 
   return "erc20";
+}
+
+export async function previewAddedToken(client: PublicClient, address: Address, expected: "erc20" | "verified-ctoken"): Promise<AddedTokenPreview> {
+  const normalized = getAddress(address);
+  const kind = await detectAddedTokenKind(client, normalized);
+
+  if (expected === "verified-ctoken") {
+    if (kind !== "wrapper") {
+      throw new Error("This address is not an ERC7984 wrapper contract.");
+    }
+    const underlyingAddress = getAddress(
+      (await client.readContract({ address: normalized, abi: wrapperAbi, functionName: "underlying" })) as string
+    );
+    const [underlying, confidential, rate, registryLookup] = await Promise.all([
+      metadata(client, underlyingAddress),
+      metadata(client, normalized),
+      client.readContract({ address: normalized, abi: wrapperAbi, functionName: "rate" }).catch(() => 1n),
+      client
+        .readContract({ address: WRAPPERS_REGISTRY_ADDRESS, abi: registryAbi, functionName: "getTokenAddress", args: [normalized] })
+        .catch(() => [false, zeroAddress] as readonly [boolean, Address])
+    ]);
+    const [isValid, registryUnderlying] = registryLookup as readonly [boolean, Address];
+    return {
+      kind: "wrapper",
+      underlying,
+      confidential,
+      isValid: Boolean(isValid) && sameAddress(registryUnderlying, underlyingAddress),
+      rate: BigInt(rate)
+    };
+  }
+
+  if (kind !== "erc20") {
+    throw new Error("This address is not a plain ERC20 token.");
+  }
+  const [token, registryLookup] = await Promise.all([
+    metadata(client, normalized),
+    client
+      .readContract({ address: WRAPPERS_REGISTRY_ADDRESS, abi: registryAbi, functionName: "getConfidentialTokenAddress", args: [normalized] })
+      .catch(() => [false, zeroAddress] as readonly [boolean, Address])
+  ]);
+  const [registryValid, confidentialAddress] = registryLookup as readonly [boolean, Address];
+  const pairedConfidential =
+    registryValid && !sameAddress(confidentialAddress, zeroAddress)
+      ? await metadata(client, getAddress(confidentialAddress)).catch(() => undefined)
+      : undefined;
+  return { kind: "erc20", token, pairedConfidential, registryValid: Boolean(registryValid) };
 }
 
 /**

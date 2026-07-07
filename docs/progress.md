@@ -284,3 +284,20 @@
 - Thiet ke lai popup Add token/Create token voi header icon, segmented tabs, body form rieng, input/action ro hon va responsive mobile.
 - Chay npm test: pass 5 files / 18 tests.
 - Chay npm run build: pass; con warning chunk/PURE annotation tu Privy/Zama dependencies.
+
+## Dang lam chinh Add cToken/Create cToken/result flow
+- Bat dau sua Add cToken de doc metadata/pair truoc confirm, don result Shield/Unshield va dua underlying selector Create cToken len dau form.
+
+## Hoan tat chinh Add cToken/Create cToken/result flow
+- Add existing token gio doc metadata on-chain truoc khi confirm; cToken wrapper hien Token name/Symbol va Confidential name/Symbol cung underlying/cToken address va registry status.
+- Shield/Unshield sau khi thanh cong chi hien success result card, khong lap them panel ben duoi form.
+- Create confidential token dua Underlying ERC20 len dau form; chon underlying tu list auto-fill cToken name/symbol va van cho user sua.
+- Chay npm test: pass 5 files / 18 tests.
+- Chay npm run build: pass; con warning chunk/PURE annotation tu Privy/Zama dependencies.
+
+## Dang lam doi ten app
+- Bat dau doi ten user-facing/package metadata tu Blyn sang Confidential Hub.
+
+## Hoan tat doi ten app
+- Doi browser title, sidebar brand, web manifest va npm package metadata tu Blyn sang Confidential Hub.
+- Chay npm run build: pass; con warning chunk/PURE annotation tu Privy/Zama dependencies.

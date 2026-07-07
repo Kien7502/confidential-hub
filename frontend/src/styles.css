@@ -1761,6 +1761,44 @@ code, pre, .mono { font-family: var(--mono); }
   line-height: 1.45;
 }
 
+.token-preview {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid rgba(185, 177, 159, 0.26);
+  border-radius: 16px;
+  background: rgba(250, 248, 241, 0.72);
+}
+
+.token-preview .preview-row {
+  display: grid;
+  grid-template-columns: minmax(118px, 0.8fr) minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  font-size: 13px;
+}
+
+.token-preview .preview-row span {
+  color: var(--muted);
+}
+
+.token-preview .preview-row strong {
+  min-width: 0;
+  color: var(--fg);
+  font-weight: 720;
+  overflow-wrap: anywhere;
+}
+
+.token-preview.muted-preview {
+  color: var(--body);
+}
+
+.token-preview.error-preview {
+  border-color: rgba(183, 68, 50, 0.28);
+  background: rgba(255, 239, 235, 0.72);
+  color: var(--danger-fg);
+}
+
 .token-modal .btn.primary {
   min-height: 50px;
   border-radius: 16px;

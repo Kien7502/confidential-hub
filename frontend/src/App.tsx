@@ -31,7 +31,7 @@ import { FAUCET_MAX_TOKENS } from "./config/officialPairs";
 import { cacheKey, estimateWrappedAmount, formatTokenAmount, isFaucetAmountAllowed, parseTokenAmount } from "./lib/amounts";
 import { buildOfficialRows, buildUserRows, pairIsActionable, uniqueShieldPairs, uniqueUnshieldPairs, type DashboardRow } from "./lib/dashboardRows";
 import { loadTokenPrices, priceLookupSymbol, type TokenPriceMap } from "./lib/prices";
-import { loadAddedTokens, loadPairs, publicClient, readConfidentialHandle } from "./lib/registry";
+import { loadAddedTokens, loadPairs, previewAddedToken, publicClient, readConfidentialHandle, type AddedTokenPreview } from "./lib/registry";
 import { createZamaInstance, signUserDecryptPermit, type TypedDataSigner } from "./lib/sdk";
 import type { EthereumProvider } from "./lib/sdk";
 import { iconForConfidentialToken, resolveTokenIcon } from "./lib/tokenIcons";
@@ -297,7 +297,7 @@ export default function App({ privyConfigured }: { privyConfigured: boolean }) {
             <img src="/favicon.png" alt="" />
           </span>
           <span className="brand-name">
-            <strong>Blyn</strong>
+            <strong>Confidential Hub</strong>
             <span>Confidential assets</span>
           </span>
         </div>
@@ -1124,6 +1124,9 @@ function CreateTokenModal({
   const initialCategory: AddedToken["category"] = request.category === "ctoken" ? "verified-ctoken" : request.category ?? "erc20";
   const [category, setCategory] = useState<AddedToken["category"]>(initialCategory);
   const [address, setAddress] = useState(request.address ?? "");
+  const [addPreview, setAddPreview] = useState<AddedTokenPreview>();
+  const [addPreviewLoading, setAddPreviewLoading] = useState(false);
+  const [addPreviewError, setAddPreviewError] = useState("");
 
   // Create-tab form state
   type CreateKind = NonNullable<CreateModalRequest["createKind"]>;
@@ -1138,21 +1141,48 @@ function CreateTokenModal({
   const [deployError, setDeployError] = useState("");
 
   function addToken() {
-    if (!isAddress(address)) return;
+    if (!isAddress(address) || !addPreview) return;
     const normalizedAddress = getAddress(address);
     const existing = addedTokens.find((token) => token.address.toLowerCase() === normalizedAddress.toLowerCase());
+    const previewToken = addPreview.kind === "wrapper" ? addPreview.confidential : addPreview.token;
     const token: AddedToken = {
       id: existing?.id ?? nowId("token"),
       category,
       address: normalizedAddress,
-      label: existing?.label,
-      iconUrl: existing?.iconUrl,
+      label: previewToken.name,
+      iconUrl: existing?.iconUrl ?? previewToken.iconUrl,
       createdAt: existing?.createdAt ?? Date.now()
     };
     saveTokens([token, ...addedTokens.filter((item) => item.address.toLowerCase() !== normalizedAddress.toLowerCase())]);
     pushActivity({ type: "add-token", status: "info", title: existing ? `Updated ${category}` : `Added ${category}`, detail: shortAddress(normalizedAddress) });
     onClose();
   }
+
+  useEffect(() => {
+    setAddPreview(undefined);
+    setAddPreviewError("");
+    if (!isAddress(address)) {
+      setAddPreviewLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setAddPreviewLoading(true);
+    previewAddedToken(publicClient, getAddress(address), category === "verified-ctoken" ? "verified-ctoken" : "erc20")
+      .then((preview) => {
+        if (cancelled) return;
+        setAddPreview(preview);
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        setAddPreviewError(error instanceof Error ? error.message : String(error));
+      })
+      .finally(() => {
+        if (!cancelled) setAddPreviewLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [address, category]);
 
   const effectiveMintAmount = mintAmount.trim() || DEFAULT_INITIAL_MINT_AMOUNT;
   const mintValid = Number(effectiveMintAmount) > 0;
@@ -1238,11 +1268,12 @@ function CreateTokenModal({
             <div className="field">
               <label>Contract address</label>
               <input className="input mono" value={address} onChange={(event) => setAddress(event.target.value)} placeholder={category === "erc20" ? "0x ERC20 address" : "0x ERC7984 wrapper address"} spellCheck={false} />
-              <span className="help">{request.underlyingAddress && category === "verified-ctoken" ? `Add the ERC7984 wrapper for ${shortAddress(request.underlyingAddress)}.` : "Token type is detected automatically from the contract on-chain."}</span>
+              <span className="help">{request.underlyingAddress && category === "verified-ctoken" ? `Add the ERC7984 wrapper for ${shortAddress(request.underlyingAddress)}.` : "Metadata is read from Sepolia before adding."}</span>
             </div>
-            <button className="btn primary block" disabled={!isAddress(address)} onClick={addToken}>
+            <AddTokenPreviewCard preview={addPreview} loading={addPreviewLoading} error={addPreviewError} />
+            <button className="btn primary block" disabled={!isAddress(address) || addPreviewLoading || !addPreview} onClick={addToken}>
               <Plus size={16} />
-              Add token
+              Confirm add
             </button>
             {addedTokens.length ? (
               <div className="token-chips token-modal-chips" aria-label="Added tokens">
@@ -1261,6 +1292,20 @@ function CreateTokenModal({
                 <option value="wrapper">Confidential token (ERC7984 wrapper)</option>
               </select>
             </div>
+            {createKind === "wrapper" ? (
+              <div className="field">
+                <label>Underlying ERC20</label>
+                <select className="input" value={underlying} onChange={(event) => setUnderlying(event.target.value)}>
+                  <option value="">Select underlying ERC20...</option>
+                  {pairs.map((pair) => (
+                    <option key={pair.id} value={pair.underlying.address}>
+                      {pair.underlying.symbol} · {shortAddress(pair.underlying.address)}
+                    </option>
+                  ))}
+                </select>
+                <input className="input mono" value={underlying} onChange={(event) => setUnderlying(event.target.value)} placeholder="or paste 0x ERC20 address" spellCheck={false} />
+              </div>
+            ) : null}
             <div className="field">
               <label>{createKind === "wrapper" ? "Confidential token name" : "Token name"}</label>
               <input className="input" value={name} onChange={(event) => setName(event.target.value)} placeholder={createKind === "wrapper" ? "Confidential token name" : "Token name"} />
@@ -1271,18 +1316,6 @@ function CreateTokenModal({
             </div>
             {createKind === "wrapper" ? (
               <>
-                <div className="field">
-                  <label>Underlying ERC20</label>
-                  <select className="input" value={underlying} onChange={(event) => setUnderlying(event.target.value)}>
-                    <option value="">Select underlying ERC20…</option>
-                    {pairs.map((pair) => (
-                      <option key={pair.id} value={pair.underlying.address}>
-                        {pair.underlying.symbol} · {shortAddress(pair.underlying.address)}
-                      </option>
-                    ))}
-                  </select>
-                  <input className="input mono" value={underlying} onChange={(event) => setUnderlying(event.target.value)} placeholder="or paste 0x ERC20 address" spellCheck={false} />
-                </div>
                 <div className="field">
                   <label>Token URI (optional)</label>
                   <input className="input" value={tokenURI} onChange={(event) => setTokenURI(event.target.value)} placeholder="Token URI (optional)" />
@@ -1306,6 +1339,85 @@ function CreateTokenModal({
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+function AddTokenPreviewCard({ preview, loading, error }: { preview?: AddedTokenPreview; loading: boolean; error: string }) {
+  if (loading) {
+    return <div className="token-preview muted-preview">Reading token metadata...</div>;
+  }
+  if (error) {
+    return <div className="token-preview error-preview">{error}</div>;
+  }
+  if (!preview) return null;
+
+  if (preview.kind === "wrapper") {
+    return (
+      <div className="token-preview">
+        <div className="preview-row">
+          <span>Token name</span>
+          <strong>{preview.underlying.name}</strong>
+        </div>
+        <div className="preview-row">
+          <span>Symbol</span>
+          <strong>{preview.underlying.symbol}</strong>
+        </div>
+        <div className="preview-row">
+          <span>Confidential name</span>
+          <strong>{preview.confidential.name}</strong>
+        </div>
+        <div className="preview-row">
+          <span>Confidential symbol</span>
+          <strong>{preview.confidential.symbol}</strong>
+        </div>
+        <div className="preview-row">
+          <span>Underlying</span>
+          <strong className="mono">{shortAddress(preview.underlying.address)}</strong>
+        </div>
+        <div className="preview-row">
+          <span>cToken</span>
+          <strong className="mono">{shortAddress(preview.confidential.address)}</strong>
+        </div>
+        <div className="preview-row">
+          <span>Registry</span>
+          <strong>{preview.isValid ? "Verified" : "Custom / unverified"}</strong>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="token-preview">
+      <div className="preview-row">
+        <span>Token name</span>
+        <strong>{preview.token.name}</strong>
+      </div>
+      <div className="preview-row">
+        <span>Symbol</span>
+        <strong>{preview.token.symbol}</strong>
+      </div>
+      {preview.pairedConfidential ? (
+        <>
+          <div className="preview-row">
+            <span>Confidential name</span>
+            <strong>{preview.pairedConfidential.name}</strong>
+          </div>
+          <div className="preview-row">
+            <span>Confidential symbol</span>
+            <strong>{preview.pairedConfidential.symbol}</strong>
+          </div>
+          <div className="preview-row">
+            <span>cToken</span>
+            <strong className="mono">{shortAddress(preview.pairedConfidential.address)}</strong>
+          </div>
+        </>
+      ) : (
+        <div className="preview-row">
+          <span>Confidential version</span>
+          <strong>No registry pair found</strong>
+        </div>
+      )}
     </div>
   );
 }
@@ -1731,7 +1843,7 @@ function UnifiedWrapPage({
     approvalTxHash
   });
 
-  if (shieldResult?.kind === "shield") {
+  if (shieldResult) {
     return (
       <div className="flow-page success-only">
         <ShieldResultPanel result={shieldResult} onReset={() => { setShieldResult(undefined); setAmount(""); }} />
@@ -1802,7 +1914,6 @@ function UnifiedWrapPage({
       </button>
       {mode === "shield" && shieldSteps.length > 0 ? <FlowSteps steps={shieldSteps} /> : null}
       {mode === "shield" && error ? <p className="flow-warning">{error}</p> : null}
-      {shieldResult ? <ShieldResultPanel result={shieldResult} onReset={() => { setShieldResult(undefined); setAmount(""); }} /> : null}
 
       {pending.length ? (
         <section className="panel panel-spacious-top pending-panel">
