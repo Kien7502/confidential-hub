@@ -57,10 +57,12 @@ function bestByAddress(pairs: TokenWrapperPair[], addressFor: (pair: TokenWrappe
 }
 
 export function uniqueShieldPairs(pairs: TokenWrapperPair[]) {
-  return bestByAddress(
-    pairs.filter((pair) => hasToken(pair.underlying)),
-    (pair) => pair.underlying.address
+  const wrapperPairs = pairs.filter((pair) => hasToken(pair.underlying) && hasToken(pair.confidential));
+  const wrapperUnderlying = new Set(wrapperPairs.map((pair) => pair.underlying.address.toLowerCase()));
+  const placeholders = pairs.filter(
+    (pair) => hasToken(pair.underlying) && !hasToken(pair.confidential) && !wrapperUnderlying.has(pair.underlying.address.toLowerCase())
   );
+  return [...wrapperPairs, ...placeholders];
 }
 
 export function uniqueUnshieldPairs(pairs: TokenWrapperPair[]) {

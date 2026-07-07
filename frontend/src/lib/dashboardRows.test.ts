@@ -109,6 +109,16 @@ describe("dashboard user rows", () => {
     expect(rows[0].confidential.symbol).toBe("cT1");
   });
 
+  it("keeps multiple Shield wrapper options for the same underlying token", () => {
+    const underlying = token("0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "ZAMA");
+    const first = pair("czama-1", underlying, token("0xcccccccccccccccccccccccccccccccccccccccc", "cZAMA"));
+    const second = pair("czama-2", underlying, token("0xdddddddddddddddddddddddddddddddddddddddd", "cZAMA"));
+
+    const rows = uniqueShieldPairs([first, second]);
+
+    expect(rows.map((row) => row.id)).toEqual(["czama-1", "czama-2"]);
+  });
+
   it("deduplicates Unshield options by confidential token", () => {
     const underlying = token("0x9999999999999999999999999999999999999999", "T1");
     const confidential = token("0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "cT1");

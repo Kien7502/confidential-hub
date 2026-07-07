@@ -34,4 +34,4 @@
 - Added test coverage so a pasted ERC7984 wrapper appears as a complete Shield/Unshield pair.
 - Fixed Shield/Unshield pair selection so stale pair ids are ignored when switching between modes with different token-side option lists.
 - Added transaction-driven balance refresh after shield, unshield, faucet, and send actions so custom cToken rows do not keep stale zero confidential handles after wrapping.
-- Added token and underlying address labels to token dropdowns so duplicate ZAMA/cZAMA symbols can be distinguished when selecting custom wrappers.
+- Added cToken address labels to token dropdowns and kept multiple wrappers for the same underlying token visible in Shield selection.

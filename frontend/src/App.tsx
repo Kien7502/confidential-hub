@@ -1520,11 +1520,7 @@ function TokenDropdown({
 }
 
 function tokenDropdownAddressLabel(option: TokenDropdownOption) {
-  const tokenAddress = shortAddress(option.token.address);
-  if (option.confidential && option.underlying) {
-    return `cToken ${tokenAddress} · underlying ${shortAddress(option.underlying.address)}`;
-  }
-  return tokenAddress;
+  return `${option.confidential ? "cToken " : ""}${shortAddress(option.token.address)}`;
 }
 
 function FlowPairSelect({ pairs, value, setValue, side }: { pairs: TokenWrapperPair[]; value: string; setValue: (value: string) => void; side: "underlying" | "confidential" }) {
